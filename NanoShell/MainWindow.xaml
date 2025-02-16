@@ -1,0 +1,14 @@
+﻿<Window x:Class="NanoShell.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:NanoShell"
+        mc:Ignorable="d"
+WindowStartupLocation="Manual" Height="50" Width="{Binding SystemParameters.PrimaryScreenWidth}" Background="Black" Topmost="True">   
+    <Grid>
+        <Button Content="←" HorizontalAlignment="Left" Margin="50, 0" Width="50" Height="50" Click="BtnBack_Click" MouseDoubleClick="BtnBack_DoubleClick" MouseRightButtonDown="BtnBack_Hold"/>
+        <Button Content="🗙" HorizontalAlignment="Center" Width="50" Height="50" Click="BtnCloseAll_Click"/>
+        <Button Content="⬜" HorizontalAlignment="Right" Margin="50, 0" Width="50" Height="50" Click="BtnTaskView_Click" MouseDoubleClick="BtnTaskView_DoubleClick" MouseRightButtonDown="BtnTaskView_Hold"/>
+    </Grid>
+</Window>
