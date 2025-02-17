@@ -18,3 +18,4 @@ C:\Users\Dangou\source\repos\NanoShell\NanoShell\obj\Debug\net8.0-windows\refint
 C:\Users\Dangou\source\repos\NanoShell\NanoShell\obj\Debug\net8.0-windows\NanoShell.pdb
 C:\Users\Dangou\source\repos\NanoShell\NanoShell\obj\Debug\net8.0-windows\NanoShell.genruntimeconfig.cache
 C:\Users\Dangou\source\repos\NanoShell\NanoShell\obj\Debug\net8.0-windows\ref\NanoShell.dll
+C:\Users\Dangou\source\repos\NanoShell\NanoShell\obj\Debug\net8.0-windows\NanoShell.sourcelink.json

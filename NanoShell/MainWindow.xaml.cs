@@ -26,6 +26,39 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
 
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPLACEMENT
+    {
+        public int length;
+        public int flags;
+        public int showCmd;
+        public Point ptMaxPosition;
+        public Point ptRestore;
+        public Rectangle rcNormalPosition;
+    }
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_NOACTIVATE = 0x08000000;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
+    private const int SW_SHOWNORMAL = 1;   // Восстановить окно в нормальном размере
+    private const int SW_MAXIMIZE = 3;     // Развернуть окно на весь экран
     private const byte VK_TAB = 0x09;
     private const byte VK_LMENU = 0xA4;
     private const byte VK_F4 = 0x73;
@@ -33,6 +66,15 @@ public partial class MainWindow : Window
     private const byte VK_CONTROL = 0x11;
     private const byte VK_ESCAPE = 0x1B;
     private const byte VK_WINDOWS = 0x5B;
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        int extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+        SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);  
+    }
 
     public MainWindow()
     {
@@ -49,22 +91,50 @@ public partial class MainWindow : Window
     }
 
 
-    private void OnTouchDown(object sender, TouchEventArgs e) { /* Логика свайпа вверх */ }
-    private void BtnBack_Click(object sender, RoutedEventArgs e) { InputSimulator.SimulateKeyPress(Key.Back); }
-    private void BtnBack_DoubleClick(object sender, MouseButtonEventArgs e) { InputSimulator.SimulateKeyPress(Key.Escape); }
-    private void BtnBack_Hold(object sender, MouseButtonEventArgs e) { InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.F4); }
-    private void BtnCloseAll_Click(object sender, RoutedEventArgs e) { InputSimulator.SimulateWinD(); }
-    private void BtnTaskView_Click(object sender, RoutedEventArgs e) { InputSimulator.SimulateKeyCombination(Key.LWin, Key.Tab); }
-    private void BtnTaskView_DoubleClick(object sender, MouseButtonEventArgs e) { InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Tab); }
-    private void BtnTaskView_Hold(object sender, MouseButtonEventArgs e) { InputSimulator.SimulateKeyCombination(Key.LWin, Key.Up); }
-    private void BtnMiddle_Hold(object sender, MouseButtonEventArgs e) { InputSimulator.SimulateKeyCombination(Key.LeftCtrl, Key.Q); }
+    private void OnTouchDown(object sender, TouchEventArgs e)
+    {
 
-    private void SimulateKeyPress(Key key) { InputSimulator.SimulateKeyPress(key); }
-    private void SimulateAltF4() { InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.F4); }
-    private void SimulateWinTab() { InputSimulator.SimulateKeyCombination(Key.LWin, Key.Tab); }
-    private void SimulateAltTab() { InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Tab); }
-    private void SimulateFullScreen() { InputSimulator.SimulateKeyCombination(Key.LWin, Key.Up); }
-    private void SimulateCtrlQ() { InputSimulator.SimulateKeyCombination(Key.LeftCtrl, Key.Q); }
+    }
+
+    private void BtnBack_Click(object sender, RoutedEventArgs e)
+    {
+        InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Left);
+    }
+    
+    private void BtnBack_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        InputSimulator.SimulateKeyPress(Key.Escape);
+    }
+    
+    private void BtnBack_Hold(object sender, MouseButtonEventArgs e)
+    {
+        InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.F4);
+    }
+    
+    private void BtnCloseAll_Click(object sender, RoutedEventArgs e)
+    {
+        InputSimulator.SimulateKeyCombination(Key.LWin, Key.D);
+    }
+    
+    private void BtnTaskView_Click(object sender, RoutedEventArgs e)
+    {
+        InputSimulator.SimulateKeyCombination(Key.LWin, Key.Tab);
+    }
+    
+    private void BtnTaskView_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Tab);
+    }
+    
+    private void BtnTaskView_Hold(object sender, MouseButtonEventArgs e)
+    {
+        InputSimulator.ToggleMaximize();
+    }
+    
+    private void BtnMiddle_Hold(object sender, MouseButtonEventArgs e)
+    {
+        InputSimulator.OpenTouchKeyboard();
+    }
 
     public static class InputSimulator
     {
@@ -81,12 +151,41 @@ public partial class MainWindow : Window
             keybd_event((byte)KeyInterop.VirtualKeyFromKey(key1), 0, 2, 0);
         }
 
-        public static void SimulateWinD()
+        public static void OpenTouchKeyboard()
         {
-            keybd_event(0x5B, 0, 0, 0); // Win
-            keybd_event(0x44, 0, 0, 0); // D
-            keybd_event(0x44, 0, 2, 0);
-            keybd_event(0x5B, 0, 2, 0);
+            try
+            {
+                // Запускаем сенсорную клавиатуру через команду
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = "tabtip.exe",
+                    UseShellExecute = true
+                };
+                Process.Start(startInfo);
+            }
+            catch { }
+        }
+
+        public static void ToggleMaximize()
+        {
+            IntPtr hWnd = GetForegroundWindow();
+
+            // Получаем текущее состояние окна
+            WINDOWPLACEMENT placement = new WINDOWPLACEMENT();
+            placement.length = Marshal.SizeOf(placement);
+            GetWindowPlacement(hWnd, ref placement);
+
+            // Проверяем, если окно развернуто
+            if (placement.showCmd == SW_MAXIMIZE)
+            {
+                // Если окно развернуто, восстанавливаем его
+                ShowWindow(hWnd, SW_SHOWNORMAL);
+            }
+            else
+            {
+                // Если окно не развернуто, разворачиваем его
+                ShowWindow(hWnd, SW_MAXIMIZE);
+            }
         }
     }
 }

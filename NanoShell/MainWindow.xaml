@@ -5,10 +5,38 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NanoShell"
         mc:Ignorable="d"
+        ShowInTaskbar="False"
 WindowStartupLocation="Manual" Height="50" Width="{Binding SystemParameters.PrimaryScreenWidth}" Background="Black" Topmost="True">   
-    <Grid>
-        <Button Content="←" HorizontalAlignment="Left" Margin="50, 0" Width="50" Height="50" Click="BtnBack_Click" MouseDoubleClick="BtnBack_DoubleClick" MouseRightButtonDown="BtnBack_Hold"/>
-        <Button Content="🗙" HorizontalAlignment="Center" Width="50" Height="50" Click="BtnCloseAll_Click"/>
-        <Button Content="⬜" HorizontalAlignment="Right" Margin="50, 0" Width="50" Height="50" Click="BtnTaskView_Click" MouseDoubleClick="BtnTaskView_DoubleClick" MouseRightButtonDown="BtnTaskView_Hold"/>
+    <Grid Focusable="False">
+        <Grid.Resources>
+            <Style TargetType="Button">
+                <Setter Property="Background" Value="Black"/>
+                <Setter Property="BorderBrush" Value="Black"/>
+                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="30">
+                                <!-- Здесь задаем скругление -->
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <!-- Подсветка только при нажатии через тачскрин -->
+                                <Trigger Property="AreAnyTouchesOver" Value="True">
+                                    <Setter Property="Background" Value="Gray"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+        </Grid.Resources>
+        <Button Content="←" Foreground="White" FontSize="30" BorderBrush="Transparent" HorizontalAlignment="Left" Margin="50, 0" Width="100" Height="50" Click="BtnBack_Click" MouseDoubleClick="BtnBack_DoubleClick" MouseRightButtonDown="BtnBack_Hold"/>
+        <Button Content="O" Foreground="White" FontSize="30" BorderBrush="Transparent" HorizontalAlignment="Center" Width="100" Height="50" Click="BtnCloseAll_Click" MouseRightButtonUp="BtnMiddle_Hold"/>
+        <Button Content="⬜" Foreground="White" FontSize="30" BorderBrush="Transparent" HorizontalAlignment="Right" Margin="50, 0" Width="100" Height="50" Click="BtnTaskView_Click" MouseDoubleClick="BtnTaskView_DoubleClick" MouseRightButtonDown="BtnTaskView_Hold"/>
     </Grid>
 </Window>
