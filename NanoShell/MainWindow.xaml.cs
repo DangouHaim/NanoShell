@@ -104,6 +104,7 @@ public partial class MainWindow : Window
     private void BtnBack_DoubleClick(object sender, MouseButtonEventArgs e)
     {
         InputSimulator.SimulateKeyPress(Key.Escape);
+        e.Handled = true;
     }
     
     private void BtnBack_Hold(object sender, MouseButtonEventArgs e)
@@ -115,7 +116,12 @@ public partial class MainWindow : Window
     {
         InputSimulator.SimulateKeyCombination(Key.LWin, Key.D);
     }
-    
+
+    private void BtnCloseAll_Hold(object sender, MouseButtonEventArgs e)
+    {
+        InputSimulator.OpenTouchKeyboard();
+    }
+
     private void BtnTaskView_Click(object sender, RoutedEventArgs e)
     {
         InputSimulator.SimulateKeyCombination(Key.LWin, Key.Tab);
@@ -124,16 +130,17 @@ public partial class MainWindow : Window
     private void BtnTaskView_DoubleClick(object sender, MouseButtonEventArgs e)
     {
         InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Tab);
+        e.Handled = true;
     }
     
     private void BtnTaskView_Hold(object sender, MouseButtonEventArgs e)
     {
         InputSimulator.ToggleMaximize();
     }
-    
-    private void BtnMiddle_Hold(object sender, MouseButtonEventArgs e)
+
+    private void Pannel_Hold(object sender, MouseButtonEventArgs e)
     {
-        InputSimulator.OpenTouchKeyboard();
+        InputSimulator.SimulateKeyPress(Key.PrintScreen);
     }
 
     public static class InputSimulator
