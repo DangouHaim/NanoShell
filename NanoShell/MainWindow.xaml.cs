@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Interop;
 
@@ -74,12 +72,6 @@ public partial class MainWindow : Window
         public int lParam;
     }
 
-    private const int ABM_NEW = 0x00000000;
-    private const int ABM_REMOVE = 0x00000001;
-    private const int ABM_QUERYPOS = 0x00000002;
-    private const int ABM_SETPOS = 0x00000003;
-    private const int ABE_BOTTOM = 3;
-
     private const int GWL_EXSTYLE = -20;
     private const int WS_EX_NOACTIVATE = 0x08000000;
     private const int WS_EX_TOOLWINDOW = 0x00000080;
@@ -89,7 +81,6 @@ public partial class MainWindow : Window
     private const int SPI_GETWORKAREA = 48;
     private const int SM_CXSCREEN = 0; // Ширина экрана в пикселях
     private const int SM_CYSCREEN = 1; // Высота экрана в пикселях
-
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
@@ -104,6 +95,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         Top = SystemParameters.PrimaryScreenHeight - 50;
         Width = SystemParameters.PrimaryScreenWidth;
+        InputSimulator.RegisterAppBar(Height);
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -160,6 +152,7 @@ public partial class MainWindow : Window
     
     private void BtnTaskView_Hold(object sender, MouseButtonEventArgs e)
     {
+        InputSimulator.RegisterAppBar(Height);
         InputSimulator.ToggleMaximize();
         e.Handled = true;
     }
