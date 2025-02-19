@@ -2,15 +2,9 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
-using System;
 using System.Windows.Interop;
 
 namespace NanoShell;
@@ -59,13 +53,6 @@ public partial class MainWindow : Window
     private const int WS_EX_TOOLWINDOW = 0x00000080;
     private const int SW_SHOWNORMAL = 1;   // Восстановить окно в нормальном размере
     private const int SW_MAXIMIZE = 3;     // Развернуть окно на весь экран
-    private const byte VK_TAB = 0x09;
-    private const byte VK_LMENU = 0xA4;
-    private const byte VK_F4 = 0x73;
-    private const byte VK_Q = 0x51;
-    private const byte VK_CONTROL = 0x11;
-    private const byte VK_ESCAPE = 0x1B;
-    private const byte VK_WINDOWS = 0x5B;
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -79,26 +66,14 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Topmost = true;
-        WindowStyle = WindowStyle.None;
-        ResizeMode = ResizeMode.NoResize;
-        Background = Brushes.Black;
-        Width = SystemParameters.PrimaryScreenWidth;
-        Height = 50;
-        Left = 0;
         Top = SystemParameters.PrimaryScreenHeight - 50;
-        TouchDown += OnTouchDown;
-    }
-
-
-    private void OnTouchDown(object sender, TouchEventArgs e)
-    {
-
+        Width = SystemParameters.PrimaryScreenWidth;
     }
 
     private void BtnBack_Click(object sender, RoutedEventArgs e)
     {
         InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Left);
+        e.Handled = true;
     }
     
     private void BtnBack_DoubleClick(object sender, MouseButtonEventArgs e)
@@ -110,21 +85,25 @@ public partial class MainWindow : Window
     private void BtnBack_Hold(object sender, MouseButtonEventArgs e)
     {
         InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.F4);
+        e.Handled = true;
     }
     
     private void BtnCloseAll_Click(object sender, RoutedEventArgs e)
     {
         InputSimulator.SimulateKeyCombination(Key.LWin, Key.D);
+        e.Handled = true;
     }
 
     private void BtnCloseAll_Hold(object sender, MouseButtonEventArgs e)
     {
         InputSimulator.OpenTouchKeyboard();
+        e.Handled = true;
     }
 
     private void BtnTaskView_Click(object sender, RoutedEventArgs e)
     {
         InputSimulator.SimulateKeyCombination(Key.LWin, Key.Tab);
+        e.Handled = true;
     }
     
     private void BtnTaskView_DoubleClick(object sender, MouseButtonEventArgs e)
@@ -136,11 +115,13 @@ public partial class MainWindow : Window
     private void BtnTaskView_Hold(object sender, MouseButtonEventArgs e)
     {
         InputSimulator.ToggleMaximize();
+        e.Handled = true;
     }
 
     private void Pannel_Hold(object sender, MouseButtonEventArgs e)
     {
         InputSimulator.SimulateKeyPress(Key.PrintScreen);
+        e.Handled = true;
     }
 
     public static class InputSimulator
