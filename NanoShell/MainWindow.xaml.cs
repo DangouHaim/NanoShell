@@ -21,7 +21,7 @@ public partial class MainWindow : Window
     private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, uint dwExtraInfo);
 
     [DllImport("user32.dll")]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+    public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
@@ -38,29 +38,29 @@ public partial class MainWindow : Window
     public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
 
     [DllImport("user32.dll")]
-    private static extern bool SystemParametersInfo(int uiAction, int uiParam, ref RECT pvParam, int fWinIni);
+    public static extern bool SystemParametersInfo(int uiAction, int uiParam, ref RECT pvParam, int fWinIni);
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
 
     // WinEvent hooks
-    private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+    public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
     [DllImport("user32.dll")]
-    private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+    public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
 
     [DllImport("user32.dll")]
-    private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+    public static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
     // Window queries
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
     private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
 
     [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
-    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetConsoleWindow();
@@ -84,7 +84,7 @@ public partial class MainWindow : Window
     private static extern uint SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct RECT
+    public struct RECT
     {
         public int left, top, right, bottom;
     }
@@ -100,23 +100,23 @@ public partial class MainWindow : Window
         public int lParam;
     }
 
-    private const int GWL_EXSTYLE = -20;
+    public const int GWL_EXSTYLE = -20;
     private const int WS_EX_NOACTIVATE = 0x08000000;
-    private const int WS_EX_TOOLWINDOW = 0x00000080;
-    private const int SW_SHOWNORMAL = 1;   // Восстановить окно в нормальном размере
-    private const int SW_MAXIMIZE = 3;     // Развернуть окно на весь экран
+    public const int WS_EX_TOOLWINDOW = 0x00000080;
+    public const int SW_SHOWNORMAL = 1;   // Восстановить окно в нормальном размере
+    public const int SW_MAXIMIZE = 3;     // Развернуть окно на весь экран
     private const int SPI_SETWORKAREA = 47;
-    private const int SPI_GETWORKAREA = 48;
+    public const int SPI_GETWORKAREA = 48;
     private const int SM_CXSCREEN = 0; // Ширина экрана в пикселях
     private const int SM_CYSCREEN = 1; // Высота экрана в пикселях
-    private const uint WINEVENT_OUTOFCONTEXT = 0;
-    private const uint EVENT_SYSTEM_FOREGROUND = 3;
-    private const int OBJID_WINDOW = 0;
-    private const int CHILDID_SELF = 0;
-    private const int GWL_STYLE = -16;
-    private const uint WS_SIZEBOX = 0x00040000;
-    private static readonly IntPtr HWND_TOP = IntPtr.Zero;
-    private const uint SWP_SHOWWINDOW = 0x0040;
+    public const uint WINEVENT_OUTOFCONTEXT = 0;
+    public const uint EVENT_SYSTEM_FOREGROUND = 3;
+    public const int OBJID_WINDOW = 0;
+    public const int CHILDID_SELF = 0;
+    public const int GWL_STYLE = -16;
+    public const uint WS_SIZEBOX = 0x00040000;
+    public static readonly IntPtr HWND_TOP = IntPtr.Zero;
+    public const uint SWP_SHOWWINDOW = 0x0040;
     private const uint SWP_NOZORDER = 0x0004;
     private const uint SWP_NOACTIVATE = 0x0010;
     protected override void OnSourceInitialized(EventArgs e)
