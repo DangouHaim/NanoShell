@@ -81,13 +81,12 @@ public class WindowAutoManager : IDisposable
             return;
 
         // 2. Check window size
-        if (MainWindow.GetWindowRect(hWnd, out MainWindow.RECT rect))
-        {
-            int width = rect.right - rect.left;
-            int height = rect.bottom - rect.top;
-            if (width < 300 || height < 200)
-                return;
-        }
+        if (!MainWindow.GetWindowRect(hWnd, out MainWindow.RECT rect))
+            return;
+        int width = rect.right - rect.left;
+        int height = rect.bottom - rect.top;
+        if (width < 300 || height < 200)
+            return;
 
         // 3. Check if already maximized
         MainWindow.WINDOWPLACEMENT placement = new MainWindow.WINDOWPLACEMENT();
@@ -111,7 +110,8 @@ public class WindowAutoManager : IDisposable
     private void SnapToTopHalf(IntPtr hWnd)
     {
         MainWindow.RECT workArea = new MainWindow.RECT();
-        MainWindow.SystemParametersInfo(MainWindow.SPI_GETWORKAREA, 0, ref workArea, 0);
+        if (!MainWindow.SystemParametersInfo(MainWindow.SPI_GETWORKAREA, 0, ref workArea, 0))
+            return;
 
         int width = workArea.right - workArea.left;
         int height = (workArea.bottom - workArea.top) / 2;
