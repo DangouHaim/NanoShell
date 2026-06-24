@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -15,7 +14,7 @@ public class WindowAutoManager : IDisposable
     private bool _disposed;
 
     // WinEvent hook delegate — must be kept alive to avoid GC
-    private MainWindow.WinEventDelegate _winEventDelegate;
+    private MainWindow.WinEventDelegate _winEventDelegate = null!;
 
     public WindowAutoManager(Dispatcher dispatcher)
     {
@@ -24,6 +23,8 @@ public class WindowAutoManager : IDisposable
 
     public void Start()
     {
+        if (_hook != IntPtr.Zero)
+            return;
         _winEventDelegate = WinEventProc;
         _hook = MainWindow.SetWinEventHook(
             MainWindow.EVENT_SYSTEM_FOREGROUND,
@@ -91,7 +92,8 @@ public class WindowAutoManager : IDisposable
         // 3. Check if already maximized
         MainWindow.WINDOWPLACEMENT placement = new MainWindow.WINDOWPLACEMENT();
         placement.length = Marshal.SizeOf(placement);
-        MainWindow.GetWindowPlacement(hWnd, ref placement);
+        if (!MainWindow.GetWindowPlacement(hWnd, ref placement))
+            return;
         if (placement.showCmd == MainWindow.SW_MAXIMIZE)
             return;
 
@@ -119,7 +121,7 @@ public class WindowAutoManager : IDisposable
             MainWindow.HWND_TOP,
             workArea.left, workArea.top,
             width, height,
-            MainWindow.SWP_SHOWWINDOW
+            MainWindow.SWP_SHOWWINDOW | MainWindow.SWP_NOACTIVATE
         );
     }
 
