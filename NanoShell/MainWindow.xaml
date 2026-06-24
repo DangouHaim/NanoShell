@@ -18,22 +18,21 @@
         >   
     <Grid Focusable="False">
         <Grid.Resources>
-            <Style TargetType="Button">
+            <Style TargetType="ContentControl">
                 <Setter Property="Background" Value="Black"/>
-                <Setter Property="BorderBrush" Value="Black"/>
-                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="FontSize" Value="30"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="Template">
                     <Setter.Value>
-                        <ControlTemplate TargetType="Button">
+                        <ControlTemplate TargetType="ContentControl">
                             <Border Background="{TemplateBinding Background}" 
-                                BorderBrush="{TemplateBinding BorderBrush}" 
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="20">
-                                <!-- Здесь задаем скругление -->
+                                    CornerRadius="20"
+                                    Width="100" Height="50">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
-                                <!-- Подсветка только при нажатии через тачскрин -->
                                 <Trigger Property="AreAnyTouchesOver" Value="True">
                                     <Setter Property="Background" Value="Gray"/>
                                 </Trigger>
@@ -43,9 +42,9 @@
                 </Setter>
             </Style>
         </Grid.Resources>
-        <DockPanel MouseRightButtonUp="Pannel_Hold" Background="Black"></DockPanel>
-        <Button Content="←" Foreground="White" FontSize="30" BorderBrush="Transparent" HorizontalAlignment="Left" Margin="50, 0" Width="100" Height="50" Click="BtnBack_Click" MouseDoubleClick="BtnBack_DoubleClick" MouseRightButtonDown="BtnBack_Hold"/>
-        <Button Content="O" Foreground="White" FontSize="30" BorderBrush="Transparent" HorizontalAlignment="Center" Width="100" Height="50" Click="BtnCloseAll_Click" MouseRightButtonUp="BtnCloseAll_Hold"/>
-        <Button Content="⬜" Foreground="White" FontSize="30" BorderBrush="Transparent" HorizontalAlignment="Right" Margin="50, 0" Width="100" Height="50" Click="BtnTaskView_Click" MouseDoubleClick="BtnTaskView_DoubleClick" MouseRightButtonDown="BtnTaskView_Hold"/>
+        <DockPanel StylusSystemGesture="Panel_Gesture" Background="Black"/>
+        <ContentControl Content="←" StylusSystemGesture="BtnBack_Gesture" HorizontalAlignment="Left" Margin="50,0"/>
+        <ContentControl Content="O" StylusSystemGesture="BtnCloseAll_Gesture" HorizontalAlignment="Center"/>
+        <ContentControl Content="⬜" StylusSystemGesture="BtnTaskView_Gesture" HorizontalAlignment="Right" Margin="50,0"/>
     </Grid>
 </Window>
