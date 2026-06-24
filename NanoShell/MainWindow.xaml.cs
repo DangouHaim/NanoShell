@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Shapes;
 using System.Windows.Interop;
+using System.Windows.Threading;
 
 namespace NanoShell;
 
@@ -40,6 +41,32 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
+
+    // WinEvent hooks
+    private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+    // Window queries
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetConsoleWindow();
+
+    // Process query
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct WINDOWPLACEMENT
@@ -81,6 +108,16 @@ public partial class MainWindow : Window
     private const int SPI_GETWORKAREA = 48;
     private const int SM_CXSCREEN = 0; // Ширина экрана в пикселях
     private const int SM_CYSCREEN = 1; // Высота экрана в пикселях
+    private const uint WINEVENT_OUTOFCONTEXT = 0;
+    private const uint EVENT_SYSTEM_FOREGROUND = 3;
+    private const int OBJID_WINDOW = 0;
+    private const int CHILDID_SELF = 0;
+    private const int GWL_STYLE = -16;
+    private const uint WS_SIZEBOX = 0x00040000;
+    private static readonly IntPtr HWND_TOP = IntPtr.Zero;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_NOACTIVATE = 0x0010;
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
@@ -108,59 +145,99 @@ public partial class MainWindow : Window
         InputSimulator.RegisterAppBar();
     }
 
-    private void BtnBack_Click(object sender, RoutedEventArgs e)
+    private DateTime _lastBackTapTime = DateTime.MinValue;
+    private DispatcherTimer _backTapTimer;
+
+    private void HandleTapWithDoubleTap(ref DateTime lastTapTime, ref DispatcherTimer timer, Action singleTap, Action doubleTap)
     {
-        InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Left);
-        e.Handled = true;
+        timer?.Stop();
+        var now = DateTime.Now;
+        if ((now - lastTapTime).TotalMilliseconds < 300)
+        {
+            doubleTap();
+            lastTapTime = DateTime.MinValue;
+        }
+        else
+        {
+            lastTapTime = now;
+            DispatcherTimer localTimer = null;
+            localTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(300), DispatcherPriority.Normal,
+                (s, args) =>
+                {
+                    singleTap();
+                    localTimer?.Stop();
+                },
+                Dispatcher.CurrentDispatcher);
+            timer = localTimer;
+            localTimer.Start();
+        }
     }
-    
-    private void BtnBack_DoubleClick(object sender, MouseButtonEventArgs e)
+
+    private void CancelPendingTap(ref DateTime lastTapTime, ref DispatcherTimer timer)
     {
-        InputSimulator.SimulateKeyPress(Key.Escape);
-        e.Handled = true;
+        timer?.Stop();
+        lastTapTime = DateTime.MinValue;
     }
-    
-    private void BtnBack_Hold(object sender, MouseButtonEventArgs e)
+
+    private void BtnBack_Gesture(object sender, StylusSystemGestureEventArgs e)
     {
-        InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.F4);
-        e.Handled = true;
-    }
-    
-    private void BtnCloseAll_Click(object sender, RoutedEventArgs e)
-    {
-        InputSimulator.SimulateKeyCombination(Key.LWin, Key.D);
+        switch (e.SystemGesture)
+        {
+            case SystemGesture.Tap:
+                HandleTapWithDoubleTap(ref _lastBackTapTime, ref _backTapTimer,
+                    () => InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Left),
+                    () => InputSimulator.SimulateKeyPress(Key.Escape));
+                break;
+            case SystemGesture.RightTap:
+                CancelPendingTap(ref _lastBackTapTime, ref _backTapTimer);
+                InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.F4);
+                break;
+        }
         e.Handled = true;
     }
 
-    private void BtnCloseAll_Hold(object sender, MouseButtonEventArgs e)
+    private void BtnCloseAll_Gesture(object sender, StylusSystemGestureEventArgs e)
     {
-        InputSimulator.OpenTouchKeyboard();
+        switch (e.SystemGesture)
+        {
+            case SystemGesture.Tap:
+                InputSimulator.SimulateKeyCombination(Key.LWin, Key.D);
+                break;
+            case SystemGesture.RightTap:
+                InputSimulator.OpenTouchKeyboard();
+                break;
+        }
         e.Handled = true;
     }
 
-    private void BtnTaskView_Click(object sender, RoutedEventArgs e)
+    private DateTime _lastTaskViewTapTime = DateTime.MinValue;
+    private DispatcherTimer _taskViewTapTimer;
+
+    private void BtnTaskView_Gesture(object sender, StylusSystemGestureEventArgs e)
     {
-        InputSimulator.SimulateKeyCombination(Key.LWin, Key.Tab);
-        e.Handled = true;
-    }
-    
-    private void BtnTaskView_DoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Tab);
-        e.Handled = true;
-    }
-    
-    private void BtnTaskView_Hold(object sender, MouseButtonEventArgs e)
-    {
-        InputSimulator.RegisterAppBar(Height);
-        InputSimulator.ToggleMaximize();
+        switch (e.SystemGesture)
+        {
+            case SystemGesture.Tap:
+                HandleTapWithDoubleTap(ref _lastTaskViewTapTime, ref _taskViewTapTimer,
+                    () => InputSimulator.SimulateKeyCombination(Key.LWin, Key.Tab),
+                    () => InputSimulator.SimulateKeyCombination(Key.LeftAlt, Key.Tab));
+                break;
+            case SystemGesture.RightTap:
+                CancelPendingTap(ref _lastTaskViewTapTime, ref _taskViewTapTimer);
+                InputSimulator.RegisterAppBar(Height);
+                InputSimulator.ToggleMaximize();
+                break;
+        }
         e.Handled = true;
     }
 
-    private void Pannel_Hold(object sender, MouseButtonEventArgs e)
+    private void Panel_Gesture(object sender, StylusSystemGestureEventArgs e)
     {
-        InputSimulator.SimulateKeyPress(Key.PrintScreen);
-        e.Handled = true;
+        if (e.SystemGesture == SystemGesture.RightTap)
+        {
+            InputSimulator.SimulateKeyPress(Key.PrintScreen);
+            e.Handled = true;
+        }
     }
 
     public static class InputSimulator
