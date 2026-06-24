@@ -119,13 +119,19 @@ public partial class MainWindow : Window
     public const uint SWP_SHOWWINDOW = 0x0040;
     private const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
+
+    private WindowAutoManager _windowAutoManager;
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
 
         IntPtr hwnd = new WindowInteropHelper(this).Handle;
         int extendedStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-        SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);  
+        SetWindowLong(hwnd, GWL_EXSTYLE, extendedStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+
+        _windowAutoManager = new WindowAutoManager(Dispatcher);
+        _windowAutoManager.Start();
     }
 
     public MainWindow()
@@ -143,6 +149,7 @@ public partial class MainWindow : Window
 
     private void Window_Closed(object sender, EventArgs e)
     {
+        _windowAutoManager?.Dispose();
         InputSimulator.RegisterAppBar();
     }
 
