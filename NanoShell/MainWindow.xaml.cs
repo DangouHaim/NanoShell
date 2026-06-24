@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Shapes;
@@ -293,6 +294,30 @@ public partial class MainWindow : Window
             {
                 // Если окно не развернуто, разворачиваем его
                 ShowWindow(hWnd, SW_MAXIMIZE);
+            }
+        }
+
+        public static bool IsConsoleWindow(IntPtr hWnd)
+        {
+            StringBuilder className = new StringBuilder(256);
+            GetClassName(hWnd, className, 256);
+            string cls = className.ToString();
+            if (cls == "ConsoleWindowClass" || cls == "CASCADIA_HOSTING_WINDOW_CLASS")
+                return true;
+
+            if (GetConsoleWindow() == hWnd)
+                return true;
+
+            GetWindowThreadProcessId(hWnd, out uint pid);
+            try
+            {
+                string processName = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
+                string[] consoleProcesses = { "cmd", "powershell", "pwsh", "wt" };
+                return Array.IndexOf(consoleProcesses, processName) >= 0;
+            }
+            catch
+            {
+                return false;
             }
         }
 
