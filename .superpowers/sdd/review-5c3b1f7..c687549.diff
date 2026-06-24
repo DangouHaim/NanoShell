@@ -1,0 +1,13 @@
+# Review package: 5c3b1f7..c687549
+
+## Commits
+c687549 feat: add WindowAutoManager with SetWinEventHook
+
+## Files changed
+NanoShell/MainWindow.xaml.cs   |  42 ++++++-------
+NanoShell/WindowAutoManager.cs | 134 +++++++++++++++++++++++++++++++++++++++++
+2 files changed, 155 insertions(+), 21 deletions(-)
+
+## Diff
+
+[see git output above]

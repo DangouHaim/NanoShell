@@ -1,0 +1,13 @@
+# Review package: 5c3b1f7..39766fd
+
+## Commits
+c687549 feat: add WindowAutoManager with SetWinEventHook
+39766fd fix: address review findings — check GetWindowPlacement return, add SWP_NOACTIVATE to snap, guard double-start
+
+## Files changed
+NanoShell/MainWindow.xaml.cs   |  50 +++++++--------
+NanoShell/WindowAutoManager.cs | 136 +++++++++++++++++++++++++++++++++++++++++
+2 files changed, 160 insertions(+), 26 deletions(-)
+
+## Diff
+[Full diff - see above]

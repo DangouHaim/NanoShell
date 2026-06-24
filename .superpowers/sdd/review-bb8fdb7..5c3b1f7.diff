@@ -1,0 +1,72 @@
+# Review package: bb8fdb7..5c3b1f7
+
+## Commits
+5c3b1f7 feat: add console window detection
+
+## Files changed
+NanoShell/MainWindow.xaml.cs | 25 +++++++++++++++++++++++++
+1 file changed, 25 insertions(+)
+
+## Diff
+diff --git a/NanoShell/MainWindow.xaml.cs b/NanoShell/MainWindow.xaml.cs
+index 703a037..1c79e65 100644
+--- a/NanoShell/MainWindow.xaml.cs
++++ b/NanoShell/MainWindow.xaml.cs
+@@ -1,12 +1,13 @@
+ ﻿using System.Diagnostics;
+ using System.Runtime.InteropServices;
++using System.Text;
+ using System.Windows;
+ using System.Windows.Input;
+ using System.Windows.Shapes;
+ using System.Windows.Interop;
+ using System.Windows.Threading;
+ 
+ namespace NanoShell;
+ 
+ /// <summary>
+ /// Interaction logic for MainWindow.xaml
+@@ -289,20 +290,44 @@ public partial class MainWindow : Window
+                 // Если окно развернуто, восстанавливаем его
+                 ShowWindow(hWnd, SW_SHOWNORMAL);
+             }
+             else
+             {
+                 // Если окно не развернуто, разворачиваем его
+                 ShowWindow(hWnd, SW_MAXIMIZE);
+             }
+         }
+ 
++        public static bool IsConsoleWindow(IntPtr hWnd)
++        {
++            StringBuilder className = new StringBuilder(256);
++            GetClassName(hWnd, className, 256);
++            string cls = className.ToString();
++            if (cls == "ConsoleWindowClass" || cls == "CASCADIA_HOSTING_WINDOW_CLASS")
++                return true;
++
++            if (GetConsoleWindow() == hWnd)
++                return true;
++
++            GetWindowThreadProcessId(hWnd, out uint pid);
++            try
++            {
++                string processName = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
++                string[] consoleProcesses = { "cmd", "powershell", "pwsh", "wt" };
++                return Array.IndexOf(consoleProcesses, processName) >= 0;
++            }
++            catch
++            {
++                return false;
++            }
++        }
++
+         public static void RegisterAppBar(double height = 0)
+         {
+             // Get current work area
+             SystemParametersInfo(SPI_GETWORKAREA, 0, ref _appBarArea, 0);
+             int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+ 
+             // New work area with taskbar accounted for
+             RECT newWorkArea = new RECT
+             {
