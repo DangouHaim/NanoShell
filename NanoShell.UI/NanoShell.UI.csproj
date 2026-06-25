@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -7,5 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
   </PropertyGroup>
-
+  <ItemGroup>
+    <ProjectReference Include="..\NanoShell.Interop\NanoShell.Interop.csproj" />
+    <ProjectReference Include="..\NanoShell.Services\NanoShell.Services.csproj" />
+  </ItemGroup>
 </Project>
