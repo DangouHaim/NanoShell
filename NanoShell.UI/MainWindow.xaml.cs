@@ -33,8 +33,17 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        if (!_instanceMutex.WaitOne(TimeSpan.Zero, false))
-            Application.Current.Shutdown();
+        try
+        {
+            if (!_instanceMutex.WaitOne(TimeSpan.Zero, false))
+            {
+                Application.Current.Shutdown();
+                return;
+            }
+        }
+        catch (AbandonedMutexException)
+        {
+        }
 
         _ownsMutex = true;
         InitializeComponent();

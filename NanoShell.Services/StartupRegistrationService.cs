@@ -37,8 +37,7 @@ public class StartupRegistrationService
         if (p == null)
             return false;
 
-        p.WaitForExit(5000);
-        return p.ExitCode == 0;
+        return p.WaitForExit(5000) && p.ExitCode == 0;
     }
 
     private static void TryCreateTask(string exePath, string domain, string user)
@@ -56,5 +55,6 @@ public class StartupRegistrationService
         using Process? p = Process.Start(psi);
         if (p != null)
             p.WaitForExit(5000);
+
     }
 }
