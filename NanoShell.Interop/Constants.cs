@@ -27,6 +27,7 @@ public static class Constants
 
     public static readonly IntPtr HWND_TOP = IntPtr.Zero;
 
+    public const int SW_HIDE = 0;
     public const uint SWP_SHOWWINDOW = 0x0040;
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;

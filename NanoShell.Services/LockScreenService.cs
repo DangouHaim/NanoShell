@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -74,6 +75,7 @@ public class LockScreenService
         if (elapsed >= 15000)
         {
             _locked = true;
+            HideTouchKeyboard();
             LockScreenRequested?.Invoke(DiscoverWallpaper());
         }
     }
@@ -115,5 +117,13 @@ public class LockScreenService
             return fallback;
 
         return string.Empty;
+    }
+
+    private static void HideTouchKeyboard()
+    {
+        foreach (var proc in Process.GetProcessesByName("TextInputHost"))
+        {
+            try { proc.Kill(); } catch { }
+        }
     }
 }
