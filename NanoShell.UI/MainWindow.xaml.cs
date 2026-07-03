@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Threading;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -9,6 +10,9 @@ namespace NanoShell.UI;
 
 public partial class MainWindow : Window
 {
+    private static readonly Mutex _instanceMutex = new(false, "NanoShellSingleInstance");
+    private static bool _ownsMutex;
+
     private readonly KeyboardService _keyboardService;
     private readonly AppBarService _appBarService;
     private readonly WindowStateService _windowStateService;
@@ -23,10 +27,16 @@ public partial class MainWindow : Window
         NativeMethods.SetWindowLong(hwnd, Constants.GWL_EXSTYLE, extendedStyle | Constants.WS_EX_NOACTIVATE | Constants.WS_EX_TOOLWINDOW);
 
         _windowAutoManager.Start();
+
+        new StartupRegistrationService().RegisterAtLogon();
     }
 
     public MainWindow()
     {
+        if (!_instanceMutex.WaitOne(TimeSpan.Zero, false))
+            Application.Current.Shutdown();
+
+        _ownsMutex = true;
         InitializeComponent();
         _keyboardService = new KeyboardService();
         _appBarService = new AppBarService();
@@ -47,6 +57,8 @@ public partial class MainWindow : Window
     {
         _windowAutoManager?.Dispose();
         _appBarService.RegisterAppBar();
+        if (_ownsMutex)
+            _instanceMutex.ReleaseMutex();
     }
 
     private DateTime _lastBackTapTime = DateTime.MinValue;
