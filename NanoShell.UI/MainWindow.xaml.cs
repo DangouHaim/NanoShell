@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly AppBarService _appBarService;
     private readonly WindowStateService _windowStateService;
     private readonly WindowAutoManagerService _windowAutoManager;
+    private readonly LockScreenService _lockScreenService;
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
         NativeMethods.SetWindowLong(hwnd, Constants.GWL_EXSTYLE, extendedStyle | Constants.WS_EX_NOACTIVATE | Constants.WS_EX_TOOLWINDOW);
 
         _windowAutoManager.Start();
+        _lockScreenService.Start();
 
         new StartupRegistrationService().RegisterAtLogon();
     }
@@ -51,6 +53,8 @@ public partial class MainWindow : Window
         _appBarService = new AppBarService();
         _windowStateService = new WindowStateService();
         _windowAutoManager = new WindowAutoManagerService(Dispatcher, _windowStateService);
+        _lockScreenService = new LockScreenService(Dispatcher);
+        _lockScreenService.LockScreenRequested += OnLockScreenRequested;
 
         Top = SystemParameters.PrimaryScreenHeight - 50;
         Width = SystemParameters.PrimaryScreenWidth;
@@ -65,9 +69,16 @@ public partial class MainWindow : Window
     private void Window_Closed(object sender, EventArgs e)
     {
         _windowAutoManager?.Dispose();
+        _lockScreenService?.Stop();
         _appBarService.RegisterAppBar();
         if (_ownsMutex)
             _instanceMutex.ReleaseMutex();
+    }
+
+    private void OnLockScreenRequested(string wallpaperPath)
+    {
+        var win = new LockScreenWindow(_lockScreenService, wallpaperPath);
+        win.Show();
     }
 
     private DateTime _lastBackTapTime = DateTime.MinValue;

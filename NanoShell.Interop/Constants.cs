@@ -14,6 +14,7 @@ public static class Constants
 
     public const int SPI_SETWORKAREA = 47;
     public const int SPI_GETWORKAREA = 48;
+    public const uint SPI_GETDESKWALLPAPER = 0x0073;
 
     public const int SM_CXSCREEN = 0;
     public const int SM_CYSCREEN = 1;
@@ -29,4 +30,12 @@ public static class Constants
     public const uint SWP_SHOWWINDOW = 0x0040;
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
+
+    public const int WH_MOUSE_LL = 14;
+    public const uint WM_LBUTTONDOWN = 0x0201;
+    public const uint WM_RBUTTONDOWN = 0x0204;
+    public const uint WM_MBUTTONDOWN = 0x0207;
+    public const uint WM_MOUSEMOVE = 0x0200;
+    public const uint WM_MOUSEWHEEL = 0x020A;
+    public const uint WM_XBUTTONDOWN = 0x020C;
 }

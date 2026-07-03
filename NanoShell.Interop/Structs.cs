@@ -36,3 +36,10 @@ public struct APPBARDATA
     public RECT rc;
     public int lParam;
 }
+
+[StructLayout(LayoutKind.Sequential)]
+public struct LASTINPUTINFO
+{
+    public uint cbSize;
+    public uint dwTime;
+}
