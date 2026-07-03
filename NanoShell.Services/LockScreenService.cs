@@ -74,7 +74,7 @@ public class LockScreenService
         if (elapsed >= 15000)
         {
             _locked = true;
-            LockScreenRequested?.Invoke(GetWallpaperPath());
+            LockScreenRequested?.Invoke(DiscoverWallpaper());
         }
     }
 
@@ -86,7 +86,7 @@ public class LockScreenService
         return info.dwTime;
     }
 
-    private static string GetWallpaperPath()
+    public static string DiscoverWallpaper()
     {
         string? path = Registry.CurrentUser
             .OpenSubKey(@"Control Panel\Desktop")

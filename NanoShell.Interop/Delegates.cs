@@ -7,3 +7,6 @@ public delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntP
 
 [UnmanagedFunctionPointer(CallingConvention.StdCall)]
 public delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+[UnmanagedFunctionPointer(CallingConvention.StdCall)]
+public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);

@@ -11,8 +11,10 @@
         Left="0" Top="0"
         Focusable="False"
         ResizeMode="NoResize"
-        AllowsTransparency="False">
+        AllowsTransparency="True"
+        Loaded="Window_Loaded">
     <Grid x:Name="RootGrid">
+        <Rectangle x:Name="SolidBg" Fill="Black" Visibility="Visible"/>
         <Image x:Name="WallpaperImage" Stretch="UniformToFill" Visibility="Collapsed"/>
         <Border x:Name="GradientOverlay" Background="#80000000" Visibility="Collapsed"/>
         <TextBlock x:Name="TimeText"
@@ -31,7 +33,7 @@
                    FontWeight="Light"
                    Visibility="Collapsed"/>
         <TextBlock x:Name="AODTimeText"
-                   Foreground="#333"
+                   Foreground="#555"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    FontSize="36"

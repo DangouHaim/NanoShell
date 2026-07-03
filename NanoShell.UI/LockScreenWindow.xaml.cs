@@ -17,23 +17,67 @@ public partial class LockScreenWindow : Window
 {
     private readonly LockScreenService _service;
     private readonly string _wallpaperPath;
+    private readonly string _watchDir;
     private LockScreenMode _mode;
     private Point _touchStart;
     private double _swipeDelta;
     private DispatcherTimer? _tapTimer;
     private DispatcherTimer? _activeTimer;
     private bool _waitingForDoubleTap;
+    private FileSystemWatcher? _wallpaperWatcher;
 
     public LockScreenWindow(LockScreenService service, string wallpaperPath)
     {
         _service = service;
         _wallpaperPath = wallpaperPath;
+        _watchDir = GetWatchDirectory(wallpaperPath);
         _mode = LockScreenMode.AOD;
         InitializeComponent();
+        Opacity = 0;
         ShowAOD();
         TouchDown += OnTouchDown;
         TouchMove += OnTouchMove;
         TouchUp += OnTouchUp;
+    }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(500));
+        BeginAnimation(OpacityProperty, fadeIn);
+        StartWallpaperWatcher();
+    }
+
+    private static string GetWatchDirectory(string wallpaperPath)
+    {
+        if (string.IsNullOrEmpty(wallpaperPath))
+            return string.Empty;
+        string? dir = Path.GetDirectoryName(wallpaperPath);
+        return dir ?? string.Empty;
+    }
+
+    private void StartWallpaperWatcher()
+    {
+        if (string.IsNullOrEmpty(_watchDir) || !Directory.Exists(_watchDir))
+            return;
+
+        _wallpaperWatcher = new FileSystemWatcher
+        {
+            Path = _watchDir,
+            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+            IncludeSubdirectories = false
+        };
+        _wallpaperWatcher.Changed += OnWallpaperChanged;
+        _wallpaperWatcher.Created += OnWallpaperChanged;
+        _wallpaperWatcher.EnableRaisingEvents = true;
+    }
+
+    private void OnWallpaperChanged(object sender, FileSystemEventArgs e)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_mode == LockScreenMode.Active)
+                LoadWallpaper();
+        });
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -59,34 +103,34 @@ public partial class LockScreenWindow : Window
 
     private void ShowAOD()
     {
+        WallpaperImage.Source = null;
         WallpaperImage.Visibility = Visibility.Collapsed;
         GradientOverlay.Visibility = Visibility.Collapsed;
         TimeText.Visibility = Visibility.Collapsed;
         DateText.Visibility = Visibility.Collapsed;
         AODTimeText.Visibility = Visibility.Collapsed;
-        Background = new SolidColorBrush(Colors.Black);
+        SolidBg.Visibility = Visibility.Visible;
         _swipeDelta = 0;
         RootGrid.RenderTransform = null;
-        Opacity = 1;
     }
 
     private void ShowActive()
     {
-        LoadWallpaper();
+        _activeTimer?.Stop();
+        SolidBg.Visibility = Visibility.Collapsed;
         WallpaperImage.Visibility = Visibility.Visible;
+        LoadWallpaper();
         GradientOverlay.Visibility = Visibility.Visible;
         TimeText.Visibility = Visibility.Visible;
         DateText.Visibility = Visibility.Visible;
         UpdateTime();
         _swipeDelta = 0;
         RootGrid.RenderTransform = null;
-        Opacity = 1;
 
-        _activeTimer?.Stop();
         _activeTimer = new DispatcherTimer(
             TimeSpan.FromSeconds(7),
             DispatcherPriority.Normal,
-            (s, e) => SwitchToAOD(),
+            (s, e2) => SwitchToAOD(),
             Dispatcher.CurrentDispatcher);
         _activeTimer.Start();
     }
@@ -101,7 +145,8 @@ public partial class LockScreenWindow : Window
 
     private void LoadWallpaper()
     {
-        if (string.IsNullOrEmpty(_wallpaperPath))
+        string path = LockScreenService.DiscoverWallpaper();
+        if (string.IsNullOrEmpty(path))
             return;
 
         try
@@ -111,13 +156,13 @@ public partial class LockScreenWindow : Window
             bitmap.CacheOption = BitmapCacheOption.OnLoad;
             bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
 
-            if (Path.HasExtension(_wallpaperPath))
+            if (Path.HasExtension(path))
             {
-                bitmap.UriSource = new Uri(_wallpaperPath);
+                bitmap.UriSource = new Uri(path);
             }
             else
             {
-                bitmap.StreamSource = new FileStream(_wallpaperPath, FileMode.Open, FileAccess.Read);
+                bitmap.StreamSource = new FileStream(path, FileMode.Open, FileAccess.Read);
             }
 
             bitmap.EndInit();
@@ -217,6 +262,7 @@ public partial class LockScreenWindow : Window
     {
         _tapTimer?.Stop();
         _activeTimer?.Stop();
+        _wallpaperWatcher?.Dispose();
         base.OnClosed(e);
     }
 }

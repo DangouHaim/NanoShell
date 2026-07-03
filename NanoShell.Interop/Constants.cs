@@ -38,4 +38,5 @@ public static class Constants
     public const uint WM_MOUSEMOVE = 0x0200;
     public const uint WM_MOUSEWHEEL = 0x020A;
     public const uint WM_XBUTTONDOWN = 0x020C;
+
 }
