@@ -14,6 +14,35 @@ public class StartupRegistrationService
         string domain = Environment.UserDomainName;
         string user = Environment.UserName;
 
+        if (TryUpdateTask(exePath))
+            return;
+
+        TryCreateTask(exePath, domain, user);
+#endif
+    }
+
+    private static bool TryUpdateTask(string exePath)
+    {
+        ProcessStartInfo psi = new ProcessStartInfo
+        {
+            FileName = "schtasks.exe",
+            Arguments = $"/change /tn \"NanoShell2\" /tr \"{exePath}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        using Process? p = Process.Start(psi);
+        if (p == null)
+            return false;
+
+        p.WaitForExit(5000);
+        return p.ExitCode == 0;
+    }
+
+    private static void TryCreateTask(string exePath, string domain, string user)
+    {
         ProcessStartInfo psi = new ProcessStartInfo
         {
             FileName = "schtasks.exe",
@@ -26,9 +55,6 @@ public class StartupRegistrationService
 
         using Process? p = Process.Start(psi);
         if (p != null)
-        {
             p.WaitForExit(5000);
-        }
-#endif
     }
 }
