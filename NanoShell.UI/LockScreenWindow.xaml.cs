@@ -117,6 +117,7 @@ public partial class LockScreenWindow : Window
     private void ShowActive()
     {
         _activeTimer?.Stop();
+        AODTimeText.Visibility = Visibility.Collapsed;
         SolidBg.Visibility = Visibility.Collapsed;
         WallpaperImage.Visibility = Visibility.Visible;
         LoadWallpaper();
