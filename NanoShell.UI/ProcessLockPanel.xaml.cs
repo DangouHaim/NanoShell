@@ -19,6 +19,12 @@ public partial class ProcessLockPanel : UserControl
         Refresh();
     }
 
+    public void ShowPanel()
+    {
+        Refresh();
+        Visibility = Visibility.Visible;
+    }
+
     public void Refresh()
     {
         _allEntries = _service.EnumerateAll()
@@ -91,13 +97,15 @@ public partial class ProcessLockPanel : UserControl
         }
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
-    {
-        var parent = Parent as FrameworkElement;
-        var storyboard = parent?.FindResource("HidePanelStoryboard") as System.Windows.Media.Animation.Storyboard;
-        if (storyboard != null)
-            storyboard.Begin();
-    }
+private void CloseButton_Click(object sender, RoutedEventArgs e)
+{
+    // Walk up to find the PanelOverlay grid and hide it
+    DependencyObject? el = this;
+    while (el != null && !(el is Grid && (string)el.GetValue(FrameworkElement.NameProperty) == "PanelOverlay"))
+        el = VisualTreeHelper.GetParent(el);
+    if (el is Grid overlay)
+        overlay.Visibility = Visibility.Collapsed;
+}
 }
 
 public class ProcessEntryViewModel

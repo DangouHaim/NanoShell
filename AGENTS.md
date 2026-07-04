@@ -35,3 +35,7 @@ Or open `NanoShell.sln` in Visual Studio.
 - Touch-optimized: button press highlight triggers on `AreAnyTouchesOver` (not `IsMouseOver`).
 - No tests, no CI, no linter/formatting config.
 - Two gitignore files at root: `.gitignore` (standard VS template) and `gitignore` (unused legacy). Git reads `.gitignore`.
+- **Current branch**: `suspend` — LockScreen + AOD + ProcessLockPanel UI + ProcessLockService (NtSuspendProcess integration)
+- **LockScreenService**: polls `GetLastInputInfo` + `GetCursorPos` (1s), 15s → LockScreenRequested, LockScreenDismissed event on swipe-up
+- **ProcessLockService**: enumerate via `EnumWindows`, freeze/thaw via `NtSuspendProcess`/`NtResumeProcess`, exceptions stored in JSON at `%LOCALAPPDATA%\NanoShell\suspend_exceptions.json`
+- **LockScreenWindow**: layered overlay with AOD (black + tap-to-show-time), Active (wallpaper + time/date + swipe-up dismiss), gear button opens ProcessLockPanel slide-in

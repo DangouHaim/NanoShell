@@ -16,6 +16,7 @@ public enum LockScreenMode { Idle, AOD, Active }
 public partial class LockScreenWindow : Window
 {
     private readonly LockScreenService _service;
+    private readonly ProcessLockService _processLock;
     private readonly string _wallpaperPath;
     private readonly string _watchDir;
     private LockScreenMode _mode;
@@ -26,9 +27,10 @@ public partial class LockScreenWindow : Window
     private bool _waitingForDoubleTap;
     private FileSystemWatcher? _wallpaperWatcher;
 
-    public LockScreenWindow(LockScreenService service, string wallpaperPath)
+    public LockScreenWindow(LockScreenService service, ProcessLockService? processLock, string wallpaperPath)
     {
         _service = service;
+        _processLock = processLock ?? new ProcessLockService();
         _wallpaperPath = wallpaperPath;
         _watchDir = GetWatchDirectory(wallpaperPath);
         _mode = LockScreenMode.AOD;
@@ -109,6 +111,8 @@ public partial class LockScreenWindow : Window
         TimeText.Visibility = Visibility.Collapsed;
         DateText.Visibility = Visibility.Collapsed;
         AODTimeText.Visibility = Visibility.Collapsed;
+        GearButton.Visibility = Visibility.Collapsed;
+        PanelOverlay.Visibility = Visibility.Collapsed;
         SolidBg.Visibility = Visibility.Visible;
         _swipeDelta = 0;
         RootGrid.RenderTransform = null;
@@ -124,6 +128,7 @@ public partial class LockScreenWindow : Window
         GradientOverlay.Visibility = Visibility.Visible;
         TimeText.Visibility = Visibility.Visible;
         DateText.Visibility = Visibility.Visible;
+        GearButton.Visibility = Visibility.Visible;
         UpdateTime();
         _swipeDelta = 0;
         RootGrid.RenderTransform = null;
@@ -259,6 +264,22 @@ public partial class LockScreenWindow : Window
         }
     }
 
+    private void GearButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_processPanel == null)
+        {
+            _processPanel = new ProcessLockPanel(_processLock);
+            PanelHost.Content = _processPanel;
+        }
+        PanelOverlay.Visibility = Visibility.Visible;
+        _processPanel.ShowPanel();
+    }
+
+    private void Overlay_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        PanelOverlay.Visibility = Visibility.Collapsed;
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _tapTimer?.Stop();
@@ -266,4 +287,6 @@ public partial class LockScreenWindow : Window
         _wallpaperWatcher?.Dispose();
         base.OnClosed(e);
     }
+
+    private ProcessLockPanel? _processPanel;
 }

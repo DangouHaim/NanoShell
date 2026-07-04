@@ -39,5 +39,22 @@
                    FontSize="36"
                    FontWeight="Light"
                    Visibility="Collapsed"/>
+
+        <!-- Gear button -->
+        <Button x:Name="GearButton" Content="&#x2699;" Foreground="#666" Background="Transparent"
+                BorderThickness="0" FontSize="22" Cursor="Hand"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,12,12,0" Visibility="Collapsed"
+                Click="GearButton_Click"/>
+
+        <!-- Process panel overlay -->
+        <Grid x:Name="PanelOverlay" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Rectangle Grid.Column="0" Fill="Transparent" MouseDown="Overlay_MouseDown"/>
+            <ContentControl Grid.Column="1" x:Name="PanelHost"/>
+        </Grid>
     </Grid>
 </Window>
