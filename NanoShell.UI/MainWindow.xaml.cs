@@ -1,4 +1,6 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -18,6 +20,7 @@ public partial class MainWindow : Window
     private readonly WindowStateService _windowStateService;
     private readonly WindowAutoManagerService _windowAutoManager;
     private readonly LockScreenService _lockScreenService;
+    private readonly List<Process> _suspendedProcesses = new();
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -55,6 +58,7 @@ public partial class MainWindow : Window
         _windowAutoManager = new WindowAutoManagerService(Dispatcher, _windowStateService);
         _lockScreenService = new LockScreenService(Dispatcher);
         _lockScreenService.LockScreenRequested += OnLockScreenRequested;
+        _lockScreenService.LockScreenDismissed += OnLockScreenDismissed;
 
         Top = SystemParameters.PrimaryScreenHeight - 50;
         Width = SystemParameters.PrimaryScreenWidth;
@@ -68,6 +72,7 @@ public partial class MainWindow : Window
 
     private void Window_Closed(object sender, EventArgs e)
     {
+        ResumeNotepad();
         _windowAutoManager?.Dispose();
         _lockScreenService?.Stop();
         _appBarService.RegisterAppBar();
@@ -77,8 +82,48 @@ public partial class MainWindow : Window
 
     private void OnLockScreenRequested(string wallpaperPath)
     {
+        SuspendNotepad();
         var win = new LockScreenWindow(_lockScreenService, wallpaperPath);
         win.Show();
+    }
+
+    private void OnLockScreenDismissed()
+    {
+        ResumeNotepad();
+    }
+
+    private void SuspendNotepad()
+    {
+        foreach (var proc in _suspendedProcesses)
+            proc.Dispose();
+        _suspendedProcesses.Clear();
+
+        foreach (var proc in Process.GetProcessesByName("explorer"))
+        {
+            try
+            {
+                NativeMethods.NtSuspendProcess(proc.Handle);
+                _suspendedProcesses.Add(proc);
+            }
+            catch
+            {
+                proc.Dispose();
+            }
+        }
+    }
+
+    private void ResumeNotepad()
+    {
+        foreach (var proc in _suspendedProcesses)
+        {
+            try
+            {
+                NativeMethods.NtResumeProcess(proc.Handle);
+            }
+            catch { }
+            proc.Dispose();
+        }
+        _suspendedProcesses.Clear();
     }
 
     private DateTime _lastBackTapTime = DateTime.MinValue;

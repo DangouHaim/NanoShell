@@ -15,6 +15,7 @@ public class LockScreenService
     private bool _locked;
 
     public event Action<string>? LockScreenRequested;
+    public event Action? LockScreenDismissed;
 
     public LockScreenService(Dispatcher dispatcher)
     {
@@ -44,6 +45,7 @@ public class LockScreenService
         _locked = false;
         _lastInputTick = (uint)Environment.TickCount;
         NativeMethods.GetCursorPos(out _lastCursorPos);
+        LockScreenDismissed?.Invoke();
     }
 
     private void OnPollTick(object? sender, EventArgs e)
