@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using NanoShell.Interop;
@@ -106,7 +107,7 @@ public class ProcessLockService
                     {
                         Pid = pid,
                         Name = name,
-                        ExePath = exePath,
+                        ExePath = GetProcessImagePath(pid) ?? exePath,
                         ParentPid = parentPid,
                         WindowTitle = title,
                         IsFrozen = _frozenPids.Contains(pid),
@@ -126,6 +127,25 @@ public class ProcessLockService
     {
         try { using var proc = Process.GetProcessById(pid); return proc.MainWindowTitle ?? ""; }
         catch { return ""; }
+    }
+
+    private static string? GetProcessImagePath(int pid)
+    {
+        try
+        {
+            IntPtr hProcess = NativeMethods.OpenProcess(NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+            if (hProcess == IntPtr.Zero) return null;
+            try
+            {
+                var sb = new StringBuilder(1024);
+                int size = sb.Capacity;
+                if (NativeMethods.QueryFullProcessImageName(hProcess, 0, sb, ref size))
+                    return sb.ToString();
+                return null;
+            }
+            finally { NativeMethods.CloseHandle(hProcess); }
+        }
+        catch { return null; }
     }
 
     private void EnumerateWindows()

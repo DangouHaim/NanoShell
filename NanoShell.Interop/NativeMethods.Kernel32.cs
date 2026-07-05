@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace NanoShell.Interop;
 
@@ -20,7 +21,15 @@ public static partial class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool CloseHandle(IntPtr hObject);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool QueryFullProcessImageName(IntPtr hProcess, int dwFlags,
+        StringBuilder lpExeName, ref int lpdwSize);
+
     public const uint TH32CS_SNAPPROCESS = 0x00000002;
+    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 }
 
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

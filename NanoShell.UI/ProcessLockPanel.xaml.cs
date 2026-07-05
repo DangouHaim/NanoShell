@@ -87,7 +87,10 @@ public partial class ProcessLockPanel : UserControl
                 g.WindowTitles.ToLowerInvariant().Contains(s));
         }
 
-        var list = query.OrderBy(g => g.Name).ToList();
+        var list = query
+            .OrderByDescending(g => g.HasIcon)
+            .ThenBy(g => g.Name)
+            .ToList();
 
         RegularList.ItemsSource = list.Where(g => !g.IsBackground);
         BackgroundList.ItemsSource = list.Where(g => g.IsBackground);
@@ -149,6 +152,7 @@ public partial class ProcessLockPanel : UserControl
 public class ProcessGroupViewModel
 {
     private static readonly Dictionary<string, ImageSource> _iconCache = new(StringComparer.OrdinalIgnoreCase);
+    private static ImageSource? _defaultIcon;
 
     private readonly ImageSource? _icon;
 
@@ -160,6 +164,7 @@ public class ProcessGroupViewModel
     public bool IsFrozen => Entries.Any(e => e.IsFrozen);
     public bool IsBackground => Entries.All(e => e.IsBackground);
     public int ParentPid => Entries[0].ParentPid;
+    public bool HasIcon => _icon != null;
 
     public string DisplayName => Name + ".exe";
     public string CountLabel => Count > 1 ? $"×{Count}" : "";
@@ -184,7 +189,17 @@ public class ProcessGroupViewModel
         ? new SolidColorBrush(Color.FromRgb(0x66, 0xCC, 0xFF))
         : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
 
-    public ImageSource? Icon => _icon;
+    public ImageSource? Icon => _icon ?? DefaultIcon;
+
+    private static ImageSource DefaultIcon
+    {
+        get
+        {
+            if (_defaultIcon == null)
+                _defaultIcon = CreateDefaultIcon();
+            return _defaultIcon;
+        }
+    }
 
     public ProcessGroupViewModel(List<ProcessEntry> entries)
     {
@@ -247,5 +262,27 @@ public class ProcessGroupViewModel
             }
         }
         catch { return null; }
+    }
+
+    private static ImageSource CreateDefaultIcon()
+    {
+        var geometry = Geometry.Parse(
+            "M12,2 C6.48,2 2,6.48 2,12 C2,17.52 6.48,22 12,22 C17.52,22 22,17.52 22,12 C22,6.48 17.52,2 12,2 Z " +
+            "M7.07,18.28 C7.5,17.38 10.12,16.5 12,16.5 C13.88,16.5 16.5,17.38 16.93,18.28 " +
+            "C15.57,19.36 13.86,20 12,20 C10.14,20 8.43,19.36 7.07,18.28 Z " +
+            "M18.36,16.83 C16.93,15.09 14.66,14 12,14 C9.34,14 7.07,15.09 5.64,16.83 " +
+            "C4.62,15.49 4,13.82 4,12 C4,7.59 7.59,4 12,4 C16.41,4 20,7.59 20,12 " +
+            "C20,13.82 19.38,15.49 18.36,16.83 Z " +
+            "M12,6 C10.9,6 10,6.9 10,8 C10,9.1 10.9,10 12,10 C13.1,10 14,9.1 14,8 C14,6.9 13.1,6 12,6 Z");
+        var drawing = new GeometryDrawing
+        {
+            Geometry = geometry,
+            Brush = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99))
+        };
+        var group = new DrawingGroup { Children = { drawing } };
+        group.Freeze();
+        var bs = new DrawingImage(group);
+        bs.Freeze();
+        return bs;
     }
 }
