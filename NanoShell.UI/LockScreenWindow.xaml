@@ -42,9 +42,9 @@
 
         <!-- Gear button -->
         <Button x:Name="GearButton" Content="&#x2699;" Foreground="#666" Background="Transparent"
-                BorderThickness="0" FontSize="22" Cursor="Hand"
+                BorderThickness="0" FontSize="28" Cursor="Hand" Width="48" Height="48"
                 HorizontalAlignment="Right" VerticalAlignment="Top"
-                Margin="0,12,12,0" Visibility="Collapsed"
+                Margin="0,16,16,0" Visibility="Collapsed"
                 Click="GearButton_Click"/>
 
         <!-- Process panel overlay -->

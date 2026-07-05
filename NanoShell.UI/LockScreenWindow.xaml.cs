@@ -273,6 +273,7 @@ public partial class LockScreenWindow : Window
         try
         {
             _activeTimer?.Stop();
+            GearButton.Visibility = Visibility.Collapsed;
             PanelOverlay.Visibility = Visibility.Visible;
 
             if (_processPanel == null)
@@ -302,6 +303,7 @@ public partial class LockScreenWindow : Window
         PanelOverlay.Visibility = Visibility.Collapsed;
         if (_mode == LockScreenMode.Active)
         {
+            GearButton.Visibility = Visibility.Visible;
             _activeTimer?.Stop();
             _activeTimer = new DispatcherTimer(
                 TimeSpan.FromSeconds(7),
