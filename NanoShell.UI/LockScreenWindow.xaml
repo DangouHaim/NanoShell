@@ -41,11 +41,25 @@
                    Visibility="Collapsed"/>
 
         <!-- Gear button -->
-        <Button x:Name="GearButton" Content="&#x2699;" Foreground="#666" Background="Transparent"
+        <Button x:Name="GearButton" Content="&#x2699;" Foreground="#666"
                 BorderThickness="0" FontSize="28" Cursor="Hand" Width="48" Height="48"
                 HorizontalAlignment="Right" VerticalAlignment="Top"
                 Margin="0,16,16,0" Visibility="Collapsed"
-                Click="GearButton_Click"/>
+                FocusVisualStyle="{x:Null}"
+                Click="GearButton_Click">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border" Background="#01000000">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#22AAAAAA"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
 
         <!-- Process panel overlay -->
         <Grid x:Name="PanelOverlay" Visibility="Collapsed">

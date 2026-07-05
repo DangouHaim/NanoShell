@@ -45,7 +45,7 @@ public class StartupRegistrationService
         ProcessStartInfo psi = new ProcessStartInfo
         {
             FileName = "schtasks.exe",
-            Arguments = $"/create /tn \"NanoShell2\" /tr \"{exePath}\" /sc onlogon /ru \"{domain}\\{user}\" /rl highest /f",
+            Arguments = $"/create /tn \"NanoShell2\" /tr \"{exePath}\" /sc onlogon /f",
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
@@ -53,8 +53,17 @@ public class StartupRegistrationService
         };
 
         using Process? p = Process.Start(psi);
-        if (p != null)
-            p.WaitForExit(5000);
+        if (p == null)
+            return;
 
+        p.WaitForExit(5000);
+        // If creation failed, try with explicit user (may require admin)
+        if (p.ExitCode != 0)
+        {
+            psi.Arguments = $"/create /tn \"NanoShell2\" /tr \"{exePath}\" /sc onlogon /ru \"{domain}\\{user}\" /f";
+            using Process? p2 = Process.Start(psi);
+            if (p2 != null)
+                p2.WaitForExit(5000);
+        }
     }
 }
