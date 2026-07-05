@@ -1,22 +1,22 @@
 <UserControl x:Class="NanoShell.UI.ProcessLockPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="400">
+              Width="440">
     <UserControl.Resources>
         <Style x:Key="ToggleSwitchStyle" TargetType="CheckBox">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="20"/>
+            <Setter Property="Width" Value="52"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Border x:Name="BgBorder" CornerRadius="10" Background="#555" BorderThickness="0">
-                            <Ellipse x:Name="Knob" Width="16" Height="16" Fill="White"
-                                     HorizontalAlignment="Left" Margin="2,0,0,0"/>
+                        <Border x:Name="BgBorder" CornerRadius="14" Background="#555" BorderThickness="0">
+                            <Ellipse x:Name="Knob" Width="22" Height="22" Fill="White"
+                                     HorizontalAlignment="Left" Margin="3,0,0,0"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="BgBorder" Property="Background" Value="#4CAF50"/>
-                                <Setter TargetName="Knob" Property="Margin" Value="22,0,0,0"/>
+                                <Setter TargetName="Knob" Property="Margin" Value="27,0,0,0"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -28,7 +28,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="8,8"/>
+            <Setter Property="Padding" Value="10,12"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -48,7 +48,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Border Background="#CC151515" CornerRadius="12,0,0,12">
+    <Border Background="#CC151515" CornerRadius="14,0,0,14">
         <Grid Margin="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -58,11 +58,11 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Grid Grid.Row="0" Margin="0,0,0,12">
-                <TextBlock Text="Processes" Foreground="White" FontSize="18" FontWeight="Light"
+            <Grid Grid.Row="0" Margin="0,0,0,16">
+                <TextBlock Text="Processes" Foreground="White" FontSize="22" FontWeight="Light"
                            VerticalAlignment="Center"/>
                 <Button x:Name="CloseButton" Content="✕" Foreground="#999" Background="Transparent"
-                        BorderThickness="0" FontSize="16" Cursor="Hand"
+                        BorderThickness="0" FontSize="20" Cursor="Hand" Width="36" Height="36"
                         HorizontalAlignment="Right" VerticalAlignment="Center"
                         Click="CloseButton_Click"/>
             </Grid>
@@ -70,20 +70,20 @@
             <!-- Search -->
             <TextBox x:Name="SearchBox" Grid.Row="1"
                      Foreground="White" Background="#333" BorderThickness="0"
-                     Padding="8,6" Margin="0,0,0,8"
+                     Padding="12,10" Margin="0,0,0,12" FontSize="16"
                      TextChanged="SearchBox_TextChanged"/>
 
             <!-- Filter pills -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
-                <Border x:Name="FilterAllBg" Background="#666" CornerRadius="4" Margin="0,0,6,0">
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+                <Border x:Name="FilterAllBg" Background="#666" CornerRadius="6" Margin="0,0,8,0">
                     <Button x:Name="FilterAll" Content="All" Foreground="White"
-                            Background="Transparent" BorderThickness="0" Padding="10,4"
-                            Cursor="Hand" FontSize="12" Click="FilterAll_Click"/>
+                            Background="Transparent" BorderThickness="0" Padding="16,8"
+                            Cursor="Hand" FontSize="14" Click="FilterAll_Click"/>
                 </Border>
-                <Border x:Name="FilterFreezeBg" Background="#444" CornerRadius="4">
+                <Border x:Name="FilterFreezeBg" Background="#444" CornerRadius="6">
                     <Button x:Name="FilterFreeze" Content="Freeze" Foreground="White"
-                            Background="Transparent" BorderThickness="0" Padding="10,4"
-                            Cursor="Hand" FontSize="12" Click="FilterFreeze_Click"/>
+                            Background="Transparent" BorderThickness="0" Padding="16,8"
+                            Cursor="Hand" FontSize="14" Click="FilterFreeze_Click"/>
                 </Border>
             </StackPanel>
 
@@ -91,7 +91,7 @@
             <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Hidden" PanningMode="Both">
                 <StackPanel>
                     <TextBlock x:Name="RegularHeader" Text="REGULAR" Foreground="#888"
-                               FontSize="11" Margin="0,4,0,4" FontWeight="SemiBold"
+                               FontSize="12" Margin="0,6,0,4" FontWeight="SemiBold"
                                Visibility="Visible"/>
                     <ItemsControl x:Name="RegularList" Visibility="Visible">
                         <ItemsControl.ItemTemplate>
@@ -105,19 +105,19 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <Image Grid.Column="0" Width="20" Height="20"
-                                               Source="{Binding Icon}" Margin="0,0,8,0"/>
+                                        <Image Grid.Column="0" Width="24" Height="24"
+                                               Source="{Binding Icon}" Margin="0,0,10,0"/>
                                         <TextBlock Grid.Column="1" Text="{Binding FreezeIcon}"
-                                                   Foreground="{Binding FreezeColor}" FontSize="14"
-                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                   Foreground="{Binding FreezeColor}" FontSize="16"
+                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
                                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                             <TextBlock FontWeight="SemiBold" Foreground="White"
-                                                       FontSize="14" TextTrimming="CharacterEllipsis">
+                                                       FontSize="16" TextTrimming="CharacterEllipsis">
                                                 <Run Text="{Binding DisplayName, Mode=OneWay}"/>
-                                                <Run Text="{Binding CountLabel, Mode=OneWay}" Foreground="#888" FontWeight="Normal" FontSize="12"/>
+                                                <Run Text="{Binding CountLabel, Mode=OneWay}" Foreground="#888" FontWeight="Normal" FontSize="13"/>
                                             </TextBlock>
                                             <TextBlock Text="{Binding WindowTitles}" Foreground="#888"
-                                                       FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                       FontSize="13" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                         <CheckBox Grid.Column="3" IsHitTestVisible="False"
                                                   Style="{StaticResource ToggleSwitchStyle}"
@@ -128,10 +128,10 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <Border Height="1" Background="#333" Margin="0,8"/>
+                    <Border Height="1" Background="#333" Margin="0,12"/>
 
                     <TextBlock x:Name="BackgroundHeader" Text="BACKGROUND" Foreground="#888"
-                               FontSize="11" Margin="0,4,0,4" FontWeight="SemiBold"
+                               FontSize="12" Margin="0,6,0,4" FontWeight="SemiBold"
                                Visibility="Visible"/>
                     <ItemsControl x:Name="BackgroundList" Visibility="Visible">
                         <ItemsControl.ItemTemplate>
@@ -145,19 +145,19 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <Image Grid.Column="0" Width="20" Height="20"
-                                               Source="{Binding Icon}" Margin="0,0,8,0"/>
+                                        <Image Grid.Column="0" Width="24" Height="24"
+                                               Source="{Binding Icon}" Margin="0,0,10,0"/>
                                         <TextBlock Grid.Column="1" Text="{Binding FreezeIcon}"
-                                                   Foreground="{Binding FreezeColor}" FontSize="14"
-                                                   VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                   Foreground="{Binding FreezeColor}" FontSize="16"
+                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
                                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                             <TextBlock FontWeight="SemiBold" Foreground="White"
-                                                       FontSize="14" TextTrimming="CharacterEllipsis">
+                                                       FontSize="16" TextTrimming="CharacterEllipsis">
                                                 <Run Text="{Binding DisplayName, Mode=OneWay}"/>
-                                                <Run Text="{Binding CountLabel, Mode=OneWay}" Foreground="#888" FontWeight="Normal" FontSize="12"/>
+                                                <Run Text="{Binding CountLabel, Mode=OneWay}" Foreground="#888" FontWeight="Normal" FontSize="13"/>
                                             </TextBlock>
                                             <TextBlock Text="{Binding WindowTitles}" Foreground="#888"
-                                                       FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                       FontSize="13" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                         <CheckBox Grid.Column="3" IsHitTestVisible="False"
                                                   Style="{StaticResource ToggleSwitchStyle}"
