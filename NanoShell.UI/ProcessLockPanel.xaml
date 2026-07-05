@@ -9,40 +9,39 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="CheckBox">
-                        <Border CornerRadius="10" Background="#555" BorderThickness="0">
-                            <Border.Triggers>
-                                <EventTrigger RoutedEvent="CheckBox.Checked">
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <ColorAnimation To="#4CAF50" Duration="0:0:0.15"
-                                                Storyboard.TargetProperty="Background.Color"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </EventTrigger>
-                                <EventTrigger RoutedEvent="CheckBox.Unchecked">
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <ColorAnimation To="#555" Duration="0:0:0.15"
-                                                Storyboard.TargetProperty="Background.Color"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </EventTrigger>
-                            </Border.Triggers>
-                            <Ellipse Width="16" Height="16" Fill="White"
-                                     HorizontalAlignment="Left" Margin="2,0,0,0">
-                                <Ellipse.Triggers>
-                                    <EventTrigger RoutedEvent="Ellipse.Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard x:Name="thumbAnim">
-                                                <ThicknessAnimation x:Name="thumbMargin"
-                                                    Storyboard.TargetProperty="Margin"
-                                                    Duration="0:0:0.15"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Ellipse.Triggers>
-                            </Ellipse>
+                        <Border x:Name="BgBorder" CornerRadius="10" Background="#555" BorderThickness="0">
+                            <Ellipse x:Name="Knob" Width="16" Height="16" Fill="White"
+                                     HorizontalAlignment="Left" Margin="2,0,0,0"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="BgBorder" Property="Background" Value="#4CAF50"/>
+                                <Setter TargetName="Knob" Property="Margin" Value="22,0,0,0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RowButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="8,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#33FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -81,10 +80,10 @@
                             Background="Transparent" BorderThickness="0" Padding="10,4"
                             Cursor="Hand" FontSize="12" Click="FilterAll_Click"/>
                 </Border>
-                <Border x:Name="FilterExceptionsBg" Background="#444" CornerRadius="4">
-                    <Button x:Name="FilterExceptions" Content="Exceptions" Foreground="White"
+                <Border x:Name="FilterFreezeBg" Background="#444" CornerRadius="4">
+                    <Button x:Name="FilterFreeze" Content="Freeze" Foreground="White"
                             Background="Transparent" BorderThickness="0" Padding="10,4"
-                            Cursor="Hand" FontSize="12" Click="FilterExceptions_Click"/>
+                            Cursor="Hand" FontSize="12" Click="FilterFreeze_Click"/>
                 </Border>
             </StackPanel>
 
@@ -97,29 +96,34 @@
                     <ItemsControl x:Name="RegularList" Visibility="Visible">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="Transparent" Padding="4,3">
+                                <Button Style="{StaticResource RowButtonStyle}"
+                                        Click="Row_Click">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding FreezeIcon}"
+                                        <Image Grid.Column="0" Width="20" Height="20"
+                                               Source="{Binding Icon}" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding FreezeIcon}"
                                                    Foreground="{Binding FreezeColor}" FontSize="14"
                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding DisplayName}" Foreground="White"
-                                                       FontSize="13" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding WindowTitle}" Foreground="#888"
-                                                       FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock FontWeight="SemiBold" Foreground="White"
+                                                       FontSize="14" TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding DisplayName, Mode=OneWay}"/>
+                                                <Run Text="{Binding CountLabel, Mode=OneWay}" Foreground="#888" FontWeight="Normal" FontSize="12"/>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding WindowTitles}" Foreground="#888"
+                                                       FontSize="12" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
-                                        <CheckBox Grid.Column="2"
+                                        <CheckBox Grid.Column="3" IsHitTestVisible="False"
                                                   Style="{StaticResource ToggleSwitchStyle}"
-                                                  IsChecked="{Binding IsException, Mode=TwoWay}"
-                                                  Checked="Toggle_Checked"
-                                                  Unchecked="Toggle_Unchecked"/>
+                                                  IsChecked="{Binding IsFreezeTarget, Mode=OneWay}"/>
                                     </Grid>
-                                </Border>
+                                </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -132,27 +136,34 @@
                     <ItemsControl x:Name="BackgroundList" Visibility="Visible">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="Transparent" Padding="4,3">
+                                <Button Style="{StaticResource RowButtonStyle}"
+                                        Click="Row_Click">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding FreezeIcon}"
+                                        <Image Grid.Column="0" Width="20" Height="20"
+                                               Source="{Binding Icon}" Margin="0,0,8,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding FreezeIcon}"
                                                    Foreground="{Binding FreezeColor}" FontSize="14"
                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}"
-                                                   Foreground="White" FontSize="13"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   VerticalAlignment="Center"/>
-                                        <CheckBox Grid.Column="2"
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <TextBlock FontWeight="SemiBold" Foreground="White"
+                                                       FontSize="14" TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding DisplayName, Mode=OneWay}"/>
+                                                <Run Text="{Binding CountLabel, Mode=OneWay}" Foreground="#888" FontWeight="Normal" FontSize="12"/>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding WindowTitles}" Foreground="#888"
+                                                       FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <CheckBox Grid.Column="3" IsHitTestVisible="False"
                                                   Style="{StaticResource ToggleSwitchStyle}"
-                                                  IsChecked="{Binding IsException, Mode=TwoWay}"
-                                                  Checked="Toggle_Checked"
-                                                  Unchecked="Toggle_Unchecked"/>
+                                                  IsChecked="{Binding IsFreezeTarget, Mode=OneWay}"/>
                                     </Grid>
-                                </Border>
+                                </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

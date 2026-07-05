@@ -81,9 +81,9 @@ public partial class MainWindow : Window
             _instanceMutex.ReleaseMutex();
     }
 
-    private void OnLockScreenRequested(string wallpaperPath)
+    private async void OnLockScreenRequested(string wallpaperPath)
     {
-        _processLockService.FreezeAll();
+        await _processLockService.FreezeAllAsync();
         var win = new LockScreenWindow(_lockScreenService, _processLockService, wallpaperPath);
         win.Show();
     }

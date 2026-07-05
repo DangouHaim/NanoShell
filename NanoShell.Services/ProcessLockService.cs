@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 using NanoShell.Interop;
 
 namespace NanoShell.Services;
@@ -9,14 +10,32 @@ public class ProcessEntry
 {
     public int Pid { get; set; }
     public string Name { get; set; } = "";
+    public string ExePath { get; set; } = "";
+    public int ParentPid { get; set; }
     public string WindowTitle { get; set; } = "";
     public bool IsFrozen { get; set; }
-    public bool IsException { get; set; }
+    public bool IsFreezeTarget { get; set; }
     public bool IsBackground { get; set; }
 }
 
 public class ProcessLockService
 {
+    private static readonly string _logPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "NanoShell", "process_lock.log");
+
+    private static readonly HashSet<string> _systemProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "textinputhost",
+        "tabtip",
+    };
+
+    private static void Log(string msg)
+    {
+        try { File.AppendAllText(_logPath, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\n"); }
+        catch { }
+    }
+
     private readonly HashSet<string> _exceptions = new();
     private readonly HashSet<int> _frozenPids = new();
     private readonly HashSet<uint> _windowPids = new();
@@ -30,47 +49,82 @@ public class ProcessLockService
             "NanoShell");
         Directory.CreateDirectory(dir);
         _exceptionsPath = Path.Combine(dir, "suspend_exceptions.json");
-        LoadExceptions();
+        try { if (File.Exists(_exceptionsPath)) File.Delete(_exceptionsPath); }
+        catch { }
+    }
+
+    private static List<(int Pid, string Name, string ExePath, int ParentPid)> SnapshotProcesses()
+    {
+        var list = new List<(int, string, string, int)>();
+        IntPtr snap = NativeMethods.CreateToolhelp32Snapshot(NativeMethods.TH32CS_SNAPPROCESS, 0);
+        if (snap == (IntPtr)(-1))
+            return list;
+
+        try
+        {
+            var entry = new PROCESSENTRY32();
+            entry.dwSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<PROCESSENTRY32>();
+
+            if (!NativeMethods.Process32First(snap, ref entry))
+                return list;
+
+            do
+            {
+                string name = Path.GetFileNameWithoutExtension(entry.szExeFile);
+                list.Add(((int)entry.th32ProcessID, name, entry.szExeFile, (int)entry.th32ParentProcessID));
+            } while (NativeMethods.Process32Next(snap, ref entry));
+        }
+        finally
+        {
+            NativeMethods.CloseHandle(snap);
+        }
+
+        return list;
     }
 
     public List<ProcessEntry> EnumerateAll()
     {
-        EnumerateWindows();
-        var entries = new List<ProcessEntry>();
-        int selfPid = Environment.ProcessId;
-
-        foreach (var proc in Process.GetProcesses())
+        try
         {
-            try
+            EnumerateWindows();
+            var entries = new List<ProcessEntry>();
+            int selfPid = Environment.ProcessId;
+
+            foreach (var (pid, name, exePath, parentPid) in SnapshotProcesses())
             {
-                if (proc.Id == selfPid) continue;
-                _ = proc.Handle;
-                string name = proc.ProcessName;
-                string nameLower = name.ToLowerInvariant();
-                bool hasWindow = _windowPids.Contains((uint)proc.Id);
-                string title = hasWindow ? GetWindowTitle(proc) : "";
-                bool isBackground = !hasWindow
-                    && !nameLower.Equals("explorer", StringComparison.OrdinalIgnoreCase);
-
-                entries.Add(new ProcessEntry
+                try
                 {
-                    Pid = proc.Id,
-                    Name = name,
-                    WindowTitle = title,
-                    IsFrozen = _frozenPids.Contains(proc.Id),
-                    IsException = _exceptions.Contains(nameLower),
-                    IsBackground = isBackground
-                });
-            }
-            catch { }
-        }
+                    if (pid == selfPid) continue;
+                    string nameLower = name.ToLowerInvariant();
+                    if (_systemProcesses.Contains(nameLower)) continue;
+                    bool hasWindow = _windowPids.Contains((uint)pid);
+                    string title = hasWindow ? GetWindowTitle(pid) : "";
+                    bool isBackground = !hasWindow
+                        && !nameLower.Equals("explorer", StringComparison.OrdinalIgnoreCase);
 
-        return entries;
+                    entries.Add(new ProcessEntry
+                    {
+                        Pid = pid,
+                        Name = name,
+                        ExePath = exePath,
+                        ParentPid = parentPid,
+                        WindowTitle = title,
+                        IsFrozen = _frozenPids.Contains(pid),
+                        IsFreezeTarget = _exceptions.Contains(nameLower),
+                        IsBackground = isBackground
+                    });
+                }
+                catch (Exception exInner) { Log($"EnumerateAll skip pid={pid} {name}: {exInner.Message}"); }
+            }
+
+            return entries;
+        }
+        catch (Exception ex) { Log($"EnumerateAll top-level error: {ex.Message}"); return new List<ProcessEntry>(); }
     }
 
-    private static string GetWindowTitle(Process proc)
+    private static string GetWindowTitle(int pid)
     {
-        try { return proc.MainWindowTitle ?? ""; }
+        try { using var proc = Process.GetProcessById(pid); return proc.MainWindowTitle ?? ""; }
         catch { return ""; }
     }
 
@@ -94,21 +148,30 @@ public class ProcessLockService
 
     public void FreezeAll()
     {
-        EnumerateWindows();
-        int selfPid = Environment.ProcessId;
-        foreach (var proc in Process.GetProcesses())
+        try
         {
-            try
+            EnumerateWindows();
+            int selfPid = Environment.ProcessId;
+
+            foreach (var (pid, name, _, _) in SnapshotProcesses())
             {
-                if (proc.Id == selfPid) continue;
-                string name = proc.ProcessName.ToLowerInvariant();
-                if (_exceptions.Contains(name)) continue;
-                NativeMethods.NtSuspendProcess(proc.Handle);
-                _frozenPids.Add(proc.Id);
+                try
+                {
+                    if (pid == selfPid) continue;
+                    string nameLower = name.ToLowerInvariant();
+                    if (_systemProcesses.Contains(nameLower)) continue;
+                    if (!_exceptions.Contains(nameLower)) continue;
+                    using var proc = Process.GetProcessById(pid);
+                    NativeMethods.NtSuspendProcess(proc.Handle);
+                    _frozenPids.Add(pid);
+                }
+                catch (Exception exFreeze) { Log($"FreezeAll skip pid={pid}: {exFreeze.Message}"); }
             }
-            catch { }
         }
+        catch (Exception ex) { Log($"FreezeAll top-level error: {ex.Message}"); }
     }
+
+    public Task FreezeAllAsync() => Task.Run(FreezeAll);
 
     public void ThawAll()
     {
@@ -144,10 +207,10 @@ public class ProcessLockService
         catch { }
     }
 
-    public bool IsException(string processName)
+    public bool IsFreezeTarget(string processName)
         => _exceptions.Contains(processName.ToLowerInvariant());
 
-    public void ToggleException(string processName, bool isException)
+    public void ToggleFreezeTarget(string processName, bool isException)
     {
         string lower = processName.ToLowerInvariant();
         if (isException)
@@ -155,20 +218,6 @@ public class ProcessLockService
         else
             _exceptions.Remove(lower);
         SaveExceptions();
-    }
-
-    private void LoadExceptions()
-    {
-        try
-        {
-            if (!File.Exists(_exceptionsPath)) return;
-            string json = File.ReadAllText(_exceptionsPath);
-            var data = JsonSerializer.Deserialize<ExceptionsData>(json);
-            if (data?.Exceptions != null)
-                foreach (var e in data.Exceptions)
-                    _exceptions.Add(e.ToLowerInvariant());
-        }
-        catch { }
     }
 
     private void SaveExceptions()

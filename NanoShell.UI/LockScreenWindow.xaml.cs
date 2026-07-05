@@ -181,6 +181,8 @@ public partial class LockScreenWindow : Window
 
     private void OnTouchDown(object? sender, TouchEventArgs e)
     {
+        if (PanelOverlay.Visibility == Visibility.Visible) return;
+
         _touchStart = e.GetTouchPoint(this).Position;
         _swipeDelta = 0;
 
@@ -231,7 +233,7 @@ public partial class LockScreenWindow : Window
 
     private void OnTouchMove(object? sender, TouchEventArgs e)
     {
-        if (_mode != LockScreenMode.Active) return;
+        if (_mode != LockScreenMode.Active || PanelOverlay.Visibility == Visibility.Visible) return;
 
         Point pos = e.GetTouchPoint(this).Position;
         _swipeDelta = pos.Y - _touchStart.Y;
@@ -244,6 +246,8 @@ public partial class LockScreenWindow : Window
 
     private void OnTouchUp(object? sender, TouchEventArgs e)
     {
+        if (PanelOverlay.Visibility == Visibility.Visible) return;
+
         if (_mode == LockScreenMode.Active && _swipeDelta < -150)
         {
             var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200));
@@ -264,20 +268,53 @@ public partial class LockScreenWindow : Window
         }
     }
 
-    private void GearButton_Click(object sender, RoutedEventArgs e)
+    private async void GearButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_processPanel == null)
+        try
         {
-            _processPanel = new ProcessLockPanel(_processLock);
-            PanelHost.Content = _processPanel;
+            _activeTimer?.Stop();
+            PanelOverlay.Visibility = Visibility.Visible;
+
+            if (_processPanel == null)
+            {
+                _processPanel = new ProcessLockPanel(_processLock);
+                _processPanel.CloseRequested += OnPanelCloseRequested;
+                PanelHost.Content = _processPanel;
+                await _processPanel.ShowPanelAsync();
+            }
+            else
+            {
+                await _processPanel.RefreshAsync();
+            }
         }
-        PanelOverlay.Visibility = Visibility.Visible;
-        _processPanel.ShowPanel();
+        catch (Exception ex)
+        {
+            var logPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "NanoShell", "process_lock.log");
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss.fff}] GearButton_Click error: {ex}\n"); }
+            catch { }
+        }
+    }
+
+    private void OnPanelCloseRequested()
+    {
+        PanelOverlay.Visibility = Visibility.Collapsed;
+        if (_mode == LockScreenMode.Active)
+        {
+            _activeTimer?.Stop();
+            _activeTimer = new DispatcherTimer(
+                TimeSpan.FromSeconds(7),
+                DispatcherPriority.Normal,
+                (s, e2) => SwitchToAOD(),
+                Dispatcher.CurrentDispatcher);
+            _activeTimer.Start();
+        }
     }
 
     private void Overlay_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        PanelOverlay.Visibility = Visibility.Collapsed;
+        OnPanelCloseRequested();
     }
 
     protected override void OnClosed(EventArgs e)
