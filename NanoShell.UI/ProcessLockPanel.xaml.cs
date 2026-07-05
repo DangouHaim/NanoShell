@@ -22,6 +22,7 @@ public partial class ProcessLockPanel : UserControl
     private string _filter = "all";
     private string _search = "";
     private bool _isRefreshing;
+    private HashSet<int>? _thawedExplorerPids;
 
     public ProcessLockPanel(ProcessLockService service)
     {
@@ -108,6 +109,20 @@ public partial class ProcessLockPanel : UserControl
     {
         _search = SearchBox.Text;
         ApplyFilter();
+    }
+
+    private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        _thawedExplorerPids = _service.ThawByName("explorer");
+    }
+
+    private void SearchBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_thawedExplorerPids != null && _thawedExplorerPids.Count > 0)
+        {
+            _service.FreezeByName("explorer", _thawedExplorerPids);
+            _thawedExplorerPids = null;
+        }
     }
 
     private void FilterAll_Click(object sender, RoutedEventArgs e)

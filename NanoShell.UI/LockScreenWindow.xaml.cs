@@ -85,10 +85,21 @@ public partial class LockScreenWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        IntPtr hwnd = new WindowInteropHelper(this).Handle;
-        int exStyle = NativeMethods.GetWindowLong(hwnd, Constants.GWL_EXSTYLE);
-        NativeMethods.SetWindowLong(hwnd, Constants.GWL_EXSTYLE,
+        _hwnd = new WindowInteropHelper(this).Handle;
+        int exStyle = NativeMethods.GetWindowLong(_hwnd, Constants.GWL_EXSTYLE);
+        NativeMethods.SetWindowLong(_hwnd, Constants.GWL_EXSTYLE,
             exStyle | Constants.WS_EX_NOACTIVATE | Constants.WS_EX_TOOLWINDOW);
+    }
+
+    private void SetNoActivate(bool enable)
+    {
+        if (_hwnd == IntPtr.Zero) return;
+        int exStyle = NativeMethods.GetWindowLong(_hwnd, Constants.GWL_EXSTYLE);
+        if (enable)
+            exStyle |= Constants.WS_EX_NOACTIVATE;
+        else
+            exStyle &= ~Constants.WS_EX_NOACTIVATE;
+        NativeMethods.SetWindowLong(_hwnd, Constants.GWL_EXSTYLE, exStyle);
     }
 
     public void SwitchToActive()
@@ -275,6 +286,7 @@ public partial class LockScreenWindow : Window
             _activeTimer?.Stop();
             GearButton.Visibility = Visibility.Collapsed;
             PanelOverlay.Visibility = Visibility.Visible;
+            SetNoActivate(false);
 
             if (_processPanel == null)
             {
@@ -301,6 +313,7 @@ public partial class LockScreenWindow : Window
     private void OnPanelCloseRequested()
     {
         PanelOverlay.Visibility = Visibility.Collapsed;
+        SetNoActivate(true);
         if (_mode == LockScreenMode.Active)
         {
             GearButton.Visibility = Visibility.Visible;
@@ -328,4 +341,5 @@ public partial class LockScreenWindow : Window
     }
 
     private ProcessLockPanel? _processPanel;
+    private IntPtr _hwnd;
 }

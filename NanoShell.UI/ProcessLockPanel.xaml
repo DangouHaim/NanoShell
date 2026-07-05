@@ -83,6 +83,7 @@
             <TextBox x:Name="SearchBox" Grid.Row="1"
                      Foreground="White" Background="#333" BorderThickness="0"
                      Padding="12,10" Margin="0,0,0,12" FontSize="16"
+                     GotFocus="SearchBox_GotFocus" LostFocus="SearchBox_LostFocus"
                      TextChanged="SearchBox_TextChanged"/>
 
             <!-- Filter pills -->

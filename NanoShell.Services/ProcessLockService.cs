@@ -195,12 +195,13 @@ public class ProcessLockService
 
     public void ThawAll()
     {
-        foreach (int pid in _frozenPids)
+        foreach (int pid in _frozenPids.ToList())
         {
             try
             {
                 using var proc = Process.GetProcessById(pid);
-                NativeMethods.NtResumeProcess(proc.Handle);
+                // Resume until fully thawed (handles multiple suspend calls)
+                while (NativeMethods.NtResumeProcess(proc.Handle) == 0) { }
             }
             catch { }
         }
@@ -225,6 +226,44 @@ public class ProcessLockService
             }
         }
         catch { }
+    }
+
+    public HashSet<int> ThawByName(string name)
+    {
+        var thawed = new HashSet<int>();
+        foreach (var proc in Process.GetProcessesByName(name))
+        {
+            int pid = proc.Id;
+            if (_frozenPids.Contains(pid))
+            {
+                try
+                {
+                    NativeMethods.NtResumeProcess(proc.Handle);
+                    _frozenPids.Remove(pid);
+                    thawed.Add(pid);
+                }
+                catch { }
+            }
+        }
+        return thawed;
+    }
+
+    public void FreezeByName(string name, HashSet<int> pids)
+    {
+        foreach (var proc in Process.GetProcessesByName(name))
+        {
+            int pid = proc.Id;
+            if (pids.Contains(pid))
+            {
+                try
+                {
+                    using var hProc = Process.GetProcessById(pid);
+                    NativeMethods.NtSuspendProcess(hProc.Handle);
+                    _frozenPids.Add(pid);
+                }
+                catch { }
+            }
+        }
     }
 
     public bool IsFreezeTarget(string processName)
