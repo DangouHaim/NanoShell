@@ -14,10 +14,10 @@ public class StartupRegistrationService
         string domain = Environment.UserDomainName;
         string user = Environment.UserName;
 
-        if (TryUpdateTask(exePath))
-            return;
-
-        TryCreateTask(exePath, domain, user);
+        if (!TryUpdateTask(exePath))
+            TryCreateTask(exePath, domain, user);
+        else
+            FixBatteryRestrictions();
 #endif
     }
 
@@ -45,7 +45,7 @@ public class StartupRegistrationService
         ProcessStartInfo psi = new ProcessStartInfo
         {
             FileName = "schtasks.exe",
-            Arguments = $"/create /tn \"NanoShell2\" /tr \"{exePath}\" /sc onlogon /f",
+            Arguments = $"/create /tn \"NanoShell2\" /tr \"{exePath}\" /sc onlogon /ru \"{domain}\\{user}\" /rl highest /it /f",
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
@@ -57,13 +57,23 @@ public class StartupRegistrationService
             return;
 
         p.WaitForExit(5000);
-        // If creation failed, try with explicit user (may require admin)
-        if (p.ExitCode != 0)
+        FixBatteryRestrictions();
+    }
+
+    private static void FixBatteryRestrictions()
+    {
+        ProcessStartInfo psi = new ProcessStartInfo
         {
-            psi.Arguments = $"/create /tn \"NanoShell2\" /tr \"{exePath}\" /sc onlogon /ru \"{domain}\\{user}\" /f";
-            using Process? p2 = Process.Start(psi);
-            if (p2 != null)
-                p2.WaitForExit(5000);
-        }
+            FileName = "powershell.exe",
+            Arguments = "-NoProfile -Command \"$t=Get-ScheduledTask 'NanoShell2'; if($t){$t.Settings.DisallowStartIfOnBatteries=$false;$t.Settings.StopIfGoingOnBatteries=$false;Set-ScheduledTask $t|Out-Null}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        using Process? p = Process.Start(psi);
+        if (p != null)
+            p.WaitForExit(5000);
     }
 }
