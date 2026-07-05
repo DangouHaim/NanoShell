@@ -37,11 +37,13 @@ public class ProcessLockService
     {
         EnumerateWindows();
         var entries = new List<ProcessEntry>();
+        int selfPid = Environment.ProcessId;
 
         foreach (var proc in Process.GetProcesses())
         {
             try
             {
+                if (proc.Id == selfPid) continue;
                 _ = proc.Handle;
                 string name = proc.ProcessName;
                 string nameLower = name.ToLowerInvariant();
@@ -93,10 +95,12 @@ public class ProcessLockService
     public void FreezeAll()
     {
         EnumerateWindows();
+        int selfPid = Environment.ProcessId;
         foreach (var proc in Process.GetProcesses())
         {
             try
             {
+                if (proc.Id == selfPid) continue;
                 string name = proc.ProcessName.ToLowerInvariant();
                 if (_exceptions.Contains(name)) continue;
                 NativeMethods.NtSuspendProcess(proc.Handle);
