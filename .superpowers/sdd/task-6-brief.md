@@ -1,3 +1,50 @@
+# Task 6: Update LockScreenWindow
+
+**Files:**
+- Modify: `NanoShell.UI/LockScreenWindow.xaml` (add ToolTip to GearButton)
+- Modify: `NanoShell.UI/LockScreenWindow.xaml.cs` (type references + constructor)
+
+**Interfaces:**
+- Consumes: `SuspendableProcessService`, `SuspendManager`, `SuspendableProcessPanel`
+
+## Context
+
+- `LockScreenWindow` currently references `ProcessLockService` and `ProcessLockPanel` — both don't exist anymore
+- Constructor needs to accept `SuspendableProcessService` + `SuspendManager` instead of `ProcessLockService`
+- `GearButton_Click` creates `ProcessLockPanel` → must create `SuspendableProcessPanel`
+- After this task, the full solution should build
+
+## Steps
+
+### Step 1: Update LockScreenWindow.xaml
+
+Add a ToolTip to the GearButton. Find the line `<Button x:Name="GearButton" ...>` and add `ToolTip="Suspend settings"` as an attribute.
+
+The GearButton currently is:
+```xml
+<Button x:Name="GearButton" Content="&#x2699;" Foreground="#666"
+        BorderThickness="0" FontSize="28" Cursor="Hand" Width="48" Height="48"
+        HorizontalAlignment="Right" VerticalAlignment="Top"
+        Margin="0,16,16,0" Visibility="Collapsed"
+        FocusVisualStyle="{x:Null}"
+        Click="GearButton_Click">
+```
+
+Add `ToolTip="Suspend settings"` after `FocusVisualStyle`.
+
+### Step 2: Update LockScreenWindow.xaml.cs
+
+Read the current file. Replace its entire content with the code below.
+
+Key changes:
+- Field `_processLock` (type `ProcessLockService`) → `_suspendableService` (type `SuspendableProcessService`) + `_suspendManager` (type `SuspendManager`)
+- Constructor signature: `(LockScreenService, SuspendableProcessService, SuspendManager, string)`
+- `GearButton_Click`: `new ProcessLockPanel` → `new SuspendableProcessPanel`
+- Log path: `process_lock.log` → `suspend_manager.log`
+
+Full replacement code:
+
+```csharp
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -347,3 +394,19 @@ public partial class LockScreenWindow : Window
     private SuspendableProcessPanel? _processPanel;
     private IntPtr _hwnd;
 }
+```
+
+### Step 3: Build
+
+```powershell
+dotnet build NanoShell.UI\NanoShell.UI.csproj 2>&1
+```
+
+Expected: Build succeeds with 0 errors.
+
+### Step 4: Commit
+
+```bash
+git add -A
+git commit -m "refactor: update LockScreenWindow for SuspendableProcessPanel rename"
+```

@@ -46,6 +46,7 @@
                 HorizontalAlignment="Right" VerticalAlignment="Top"
                 Margin="0,16,16,0" Visibility="Collapsed"
                 FocusVisualStyle="{x:Null}"
+                ToolTip="Suspend settings"
                 Click="GearButton_Click">
             <Button.Template>
                 <ControlTemplate TargetType="Button">

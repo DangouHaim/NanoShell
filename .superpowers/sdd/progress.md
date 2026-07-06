@@ -9,3 +9,5 @@ Task 3: complete (commit a1f3a31, build clean)
 
 Task 4: complete (commit b4d1c8e, LockScreenWindow errors expected)
 
+Task 5: complete (commit 00d3d59, LockScreenWindow errors expected)
+
