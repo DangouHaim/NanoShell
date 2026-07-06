@@ -316,6 +316,7 @@ public partial class LockScreenWindow : Window
 
     private void OnPanelCloseRequested()
     {
+        _suspendManager.KeyboardInputActive = false;
         PanelOverlay.Visibility = Visibility.Collapsed;
         SetNoActivate(true);
         if (_mode == LockScreenMode.Active)

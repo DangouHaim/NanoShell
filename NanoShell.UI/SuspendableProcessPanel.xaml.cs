@@ -24,8 +24,6 @@ public partial class SuspendableProcessPanel : UserControl
     private string _filter = "all";
     private string _search = "";
     private bool _isRefreshing;
-    private HashSet<int>? _thawedExplorerPids;
-
     public SuspendableProcessPanel(SuspendableProcessService service, SuspendManager suspendManager)
     {
         _service = service;
@@ -116,33 +114,27 @@ public partial class SuspendableProcessPanel : UserControl
     private async void SearchBox_GotFocus(object sender, RoutedEventArgs e)
     {
         _suspendManager.KeyboardInputActive = true;
-        var thawed = new HashSet<int>();
         foreach (var proc in System.Diagnostics.Process.GetProcessesByName("explorer"))
         {
             uint pid = (uint)proc.Id;
             if (_suspendManager.IsSuspended(pid))
-            {
                 await _suspendManager.ResumeProcessAsync(pid, CancellationToken.None);
-                thawed.Add((int)pid);
-            }
         }
-        _thawedExplorerPids = thawed;
     }
 
     private async void SearchBox_LostFocus(object sender, RoutedEventArgs e)
     {
         _suspendManager.KeyboardInputActive = false;
-        if (_thawedExplorerPids != null && _thawedExplorerPids.Count > 0)
+        await RefreezeAllExplorerAsync();
+    }
+
+    private async Task RefreezeAllExplorerAsync()
+    {
+        foreach (var proc in System.Diagnostics.Process.GetProcessesByName("explorer"))
         {
-            foreach (var proc in System.Diagnostics.Process.GetProcessesByName("explorer"))
-            {
-                uint pid = (uint)proc.Id;
-                if (_thawedExplorerPids.Contains((int)pid) && !_suspendManager.IsSuspended(pid))
-                {
-                    await _suspendManager.SuspendProcessAsync(pid, CancellationToken.None);
-                }
-            }
-            _thawedExplorerPids = null;
+            uint pid = (uint)proc.Id;
+            if (!_suspendManager.IsSuspended(pid))
+                await _suspendManager.SuspendProcessAsync(pid, CancellationToken.None);
         }
     }
 
@@ -180,10 +172,11 @@ public partial class SuspendableProcessPanel : UserControl
         }
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    private async void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         _suspendManager.KeyboardInputActive = false;
         CloseRequested?.Invoke();
+        await RefreezeAllExplorerAsync();
     }
 }
 

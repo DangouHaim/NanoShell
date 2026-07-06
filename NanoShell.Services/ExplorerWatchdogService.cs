@@ -1,6 +1,6 @@
 using System;
 using System.Diagnostics;
-using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,6 +32,30 @@ public class ExplorerWatchdogService
         _watchTask = null;
     }
 
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+    private const uint WM_CLOSE = 0x0010;
+    private const string CabinetWClass = "CabinetWClass";
+
+    private static void CloseFileExplorerWindows()
+    {
+        try
+        {
+            IntPtr hwnd = FindWindow(CabinetWClass, null);
+            int maxTries = 20;
+            while (hwnd != IntPtr.Zero && maxTries-- > 0)
+            {
+                SendMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+                hwnd = FindWindow(CabinetWClass, null);
+            }
+        }
+        catch { }
+    }
+
     private async Task WatchLoopAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -40,16 +64,19 @@ public class ExplorerWatchdogService
             {
                 await Task.Delay(TimeSpan.FromSeconds(3), ct);
 
-                foreach (var proc in Process.GetProcessesByName("explorer"))
+                var explorerProcs = Process.GetProcessesByName("explorer");
+                bool anyExplorerRunning = false;
+
+                foreach (var proc in explorerProcs)
                 {
                     ct.ThrowIfCancellationRequested();
                     uint pid = (uint)proc.Id;
 
                     try
                     {
-                        bool isSuspended = _suspendManager.IsSuspended(pid);
+                        anyExplorerRunning = true;
 
-                        if (isSuspended)
+                        if (_suspendManager.IsSuspended(pid))
                         {
                             var suspendTime = _suspendManager.GetSuspendTime(pid);
                             if (suspendTime.HasValue)
@@ -61,6 +88,8 @@ public class ExplorerWatchdogService
                                     await Task.Delay(500, ct);
                                 }
                             }
+                            // Intentionally suspended — skip health check
+                            continue;
                         }
 
                         if (!proc.Responding)
@@ -77,9 +106,19 @@ public class ExplorerWatchdogService
                                 await Task.Delay(1500, ct);
                                 try { Process.Start("explorer.exe", "/NOUACCHECK"); }
                                 catch { }
+
+                                await Task.Delay(1000, ct);
+                                CloseFileExplorerWindows();
                             }
+                            break;
                         }
                     }
+                    catch { }
+                }
+
+                if (!anyExplorerRunning)
+                {
+                    try { Process.Start("explorer.exe", "/NOUACCHECK"); }
                     catch { }
                 }
             }
