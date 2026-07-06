@@ -28,15 +28,15 @@ public class SuspendManager
         catch { }
     }
 
-    private DateTime _lastSuspendAllTime = DateTime.MinValue;
     private readonly ConcurrentDictionary<uint, SemaphoreSlim> _locks = new();
     private readonly ConcurrentDictionary<uint, int> _suspendCount = new();
+    private readonly ConcurrentDictionary<uint, DateTime> _suspendTimes = new();
     private readonly CancellationTokenSource _shutdownCts = new();
 
     public bool KeyboardInputActive { get; set; }
-    public DateTime LastSuspendAllTime => _lastSuspendAllTime;
     public int ProcessSuspendCount(uint pid) => _suspendCount.GetValueOrDefault(pid, 0);
     public bool IsSuspended(uint pid) => _suspendCount.TryGetValue(pid, out var c) && c > 0;
+    public DateTime? GetSuspendTime(uint pid) => _suspendTimes.TryGetValue(pid, out var t) ? t : null;
 
     private SemaphoreSlim GetLock(uint pid)
         => _locks.GetOrAdd(pid, _ => new SemaphoreSlim(1, 1));
@@ -95,6 +95,7 @@ public class SuspendManager
             using var proc = Process.GetProcessById((int)pid);
             NativeMethods.NtSuspendProcess(proc.Handle);
             _suspendCount[pid] = 1;
+            _suspendTimes[pid] = DateTime.UtcNow;
             Log($"Suspended pid={pid} name={proc.ProcessName}");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -121,6 +122,7 @@ public class SuspendManager
             using var proc = Process.GetProcessById((int)pid);
             NativeMethods.NtResumeProcess(proc.Handle);
             _suspendCount.TryRemove(pid, out _);
+            _suspendTimes.TryRemove(pid, out _);
             Log($"Resumed pid={pid} name={proc.ProcessName}");
 
             await DrainProcessAsync(pid, combinedCt);
@@ -129,7 +131,10 @@ public class SuspendManager
         {
             Log($"ResumeProcessAsync pid={pid}: {ex.Message}");
             if (ex is ArgumentException) // process exited
+            {
                 _suspendCount.TryRemove(pid, out _);
+                _suspendTimes.TryRemove(pid, out _);
+            }
         }
         finally
         {
@@ -197,7 +202,6 @@ public class SuspendManager
             await SuspendProcessAsync(pid, combinedCt);
         }
 
-        _lastSuspendAllTime = DateTime.UtcNow;
         Log("SuspendAllAsync completed");
     }
 

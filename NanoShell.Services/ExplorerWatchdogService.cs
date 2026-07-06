@@ -51,11 +51,15 @@ public class ExplorerWatchdogService
 
                         if (isSuspended)
                         {
-                            var suspendAge = DateTime.UtcNow - _suspendManager.LastSuspendAllTime;
-                            if (suspendAge.TotalSeconds > 30)
+                            var suspendTime = _suspendManager.GetSuspendTime(pid);
+                            if (suspendTime.HasValue)
                             {
-                                await _suspendManager.ResumeProcessAsync(pid, ct);
-                                await Task.Delay(500, ct);
+                                var suspendAge = DateTime.UtcNow - suspendTime.Value;
+                                if (suspendAge.TotalSeconds > 30)
+                                {
+                                    await _suspendManager.ResumeProcessAsync(pid, ct);
+                                    await Task.Delay(500, ct);
+                                }
                             }
                         }
 
@@ -71,7 +75,7 @@ public class ExplorerWatchdogService
                             if (!string.IsNullOrEmpty(exePath))
                             {
                                 await Task.Delay(1500, ct);
-                                try { Process.Start(exePath); }
+                                try { Process.Start("explorer.exe", "/NOUACCHECK"); }
                                 catch { }
                             }
                         }
