@@ -1,9 +1,8 @@
-<UserControl x:Class="NanoShell.UI.ProcessLockPanel"
+<UserControl x:Class="NanoShell.UI.SuspendableProcessPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-              Width="440">
+             Width="440">
     <UserControl.Resources>
-        <!-- Default button style for all buttons in the panel -->
         <Style TargetType="Button">
             <Setter Property="Background" Value="#01000000"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -69,9 +68,8 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Header -->
             <Grid Grid.Row="0" Margin="0,0,0,16">
-                <TextBlock Text="Processes" Foreground="White" FontSize="22" FontWeight="Light"
+                <TextBlock Text="Suspend on Lock" Foreground="White" FontSize="22" FontWeight="Light"
                            VerticalAlignment="Center"/>
                 <Button x:Name="CloseButton" Content="✕" Foreground="#999" Background="Transparent"
                         BorderThickness="0" FontSize="20" Cursor="Hand" Width="36" Height="36"
@@ -79,28 +77,25 @@
                         Click="CloseButton_Click"/>
             </Grid>
 
-            <!-- Search -->
             <TextBox x:Name="SearchBox" Grid.Row="1"
                      Foreground="White" Background="#333" BorderThickness="0"
                      Padding="12,10" Margin="0,0,0,12" FontSize="16"
                      GotFocus="SearchBox_GotFocus" LostFocus="SearchBox_LostFocus"
                      TextChanged="SearchBox_TextChanged"/>
 
-            <!-- Filter pills -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
                 <Border x:Name="FilterAllBg" Background="#666" CornerRadius="6" Margin="0,0,8,0">
                     <Button x:Name="FilterAll" Content="All" Foreground="White"
                             Background="Transparent" BorderThickness="0" Padding="16,8"
                             Cursor="Hand" FontSize="14" Click="FilterAll_Click"/>
                 </Border>
-                <Border x:Name="FilterFreezeBg" Background="#444" CornerRadius="6">
-                    <Button x:Name="FilterFreeze" Content="Freeze" Foreground="White"
+                <Border x:Name="FilterSuspendBg" Background="#444" CornerRadius="6">
+                    <Button x:Name="FilterSuspend" Content="Suspend" Foreground="White"
                             Background="Transparent" BorderThickness="0" Padding="16,8"
-                            Cursor="Hand" FontSize="14" Click="FilterFreeze_Click"/>
+                            Cursor="Hand" FontSize="14" Click="FilterSuspend_Click"/>
                 </Border>
             </StackPanel>
 
-            <!-- Process list -->
             <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Hidden" PanningMode="Both">
                 <StackPanel>
                     <TextBlock x:Name="RegularHeader" Text="REGULAR" Foreground="#888"
@@ -134,7 +129,7 @@
                                         </StackPanel>
                                         <CheckBox Grid.Column="3" IsHitTestVisible="False"
                                                   Style="{StaticResource ToggleSwitchStyle}"
-                                                  IsChecked="{Binding IsFreezeTarget, Mode=OneWay}"/>
+                                                  IsChecked="{Binding IsSuspendable, Mode=OneWay}"/>
                                     </Grid>
                                 </Button>
                             </DataTemplate>
@@ -174,7 +169,7 @@
                                         </StackPanel>
                                         <CheckBox Grid.Column="3" IsHitTestVisible="False"
                                                   Style="{StaticResource ToggleSwitchStyle}"
-                                                  IsChecked="{Binding IsFreezeTarget, Mode=OneWay}"/>
+                                                  IsChecked="{Binding IsSuspendable, Mode=OneWay}"/>
                                     </Grid>
                                 </Button>
                             </DataTemplate>

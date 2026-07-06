@@ -1,13 +1,15 @@
-# Task 4: Integrate WindowAutoManager into MainWindow
+# Task 4 Report: Update MainWindow.xaml.cs
 
-## Changes
-- **Modified:** `NanoShell/MainWindow.xaml.cs`
+**Status:** DONE
 
-### What was done
-1. Added private field `_windowAutoManager` at class level
-2. In `OnSourceInitialized`: instantiated `WindowAutoManager(Dispatcher)` and called `.Start()`
-3. In `Window_Closed`: added `_windowAutoManager?.Dispose()` before `RegisterAppBar()`
+**Commits created:**
+- `b4d1c8e` — "refactor: wire SuspendManager and SuspendableProcessService in MainWindow"
 
-## Build result
-- **Build:** Succeeded (0 errors, pre-existing warnings only)
-- **Commit:** `68db4ef` — `feat: integrate WindowAutoManager into MainWindow lifecycle`
+**Build result:** FAILED (expected)
+- 4 errors total, all from `LockScreenWindow.xaml.cs` and `ProcessLockPanel.xaml.cs` referencing the deleted `ProcessLockService` type
+- Zero errors from `MainWindow.xaml.cs`
+- 3 warnings (pre-existing in SuspendManager.cs and AppBarService.cs)
+
+**Concerns:** None. Task 6 will fix LockScreenWindow and ProcessLockPanel.
+
+**Report file path:** `.superpowers/sdd/task-4-report.md`

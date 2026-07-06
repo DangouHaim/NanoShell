@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,20 +14,22 @@ using NanoShell.Services;
 
 namespace NanoShell.UI;
 
-public partial class ProcessLockPanel : UserControl
+public partial class SuspendableProcessPanel : UserControl
 {
     public event Action? CloseRequested;
 
-    private readonly ProcessLockService _service;
+    private readonly SuspendableProcessService _service;
+    private readonly SuspendManager _suspendManager;
     private List<ProcessGroupViewModel> _allGroups = new();
     private string _filter = "all";
     private string _search = "";
     private bool _isRefreshing;
     private HashSet<int>? _thawedExplorerPids;
 
-    public ProcessLockPanel(ProcessLockService service)
+    public SuspendableProcessPanel(SuspendableProcessService service, SuspendManager suspendManager)
     {
         _service = service;
+        _suspendManager = suspendManager;
         InitializeComponent();
     }
 
@@ -42,7 +45,6 @@ public partial class ProcessLockPanel : UserControl
         _isRefreshing = true;
         try
         {
-            Log("RefreshAsync: starting EnumerateAll");
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var result = await Task.Run(() => _service.EnumerateAll());
             sw.Stop();
@@ -61,13 +63,13 @@ public partial class ProcessLockPanel : UserControl
         finally { _isRefreshing = false; }
     }
 
-    private void Log(string msg)
+    private static void Log(string msg)
     {
         try
         {
             var path = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "NanoShell", "process_lock.log");
+                "NanoShell", "suspend_manager.log");
             File.AppendAllText(path, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\n");
         }
         catch { }
@@ -77,8 +79,8 @@ public partial class ProcessLockPanel : UserControl
     {
         var query = _allGroups.AsEnumerable();
 
-        if (_filter == "freeze")
-            query = query.Where(g => g.IsFreezeTarget);
+        if (_filter == "suspend")
+            query = query.Where(g => g.IsSuspendable);
 
         if (!string.IsNullOrEmpty(_search))
         {
@@ -111,18 +113,35 @@ public partial class ProcessLockPanel : UserControl
         ApplyFilter();
     }
 
-    private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
+    private async void SearchBox_GotFocus(object sender, RoutedEventArgs e)
     {
-        ProcessLockService.KeyboardInputActive = true;
-        _thawedExplorerPids = _service.ThawByName("explorer");
+        _suspendManager.KeyboardInputActive = true;
+        var thawed = new HashSet<int>();
+        foreach (var proc in System.Diagnostics.Process.GetProcessesByName("explorer"))
+        {
+            uint pid = (uint)proc.Id;
+            if (_suspendManager.IsSuspended(pid))
+            {
+                await _suspendManager.ResumeProcessAsync(pid, CancellationToken.None);
+                thawed.Add((int)pid);
+            }
+        }
+        _thawedExplorerPids = thawed;
     }
 
-    private void SearchBox_LostFocus(object sender, RoutedEventArgs e)
+    private async void SearchBox_LostFocus(object sender, RoutedEventArgs e)
     {
-        ProcessLockService.KeyboardInputActive = false;
+        _suspendManager.KeyboardInputActive = false;
         if (_thawedExplorerPids != null && _thawedExplorerPids.Count > 0)
         {
-            _service.FreezeByName("explorer", _thawedExplorerPids);
+            foreach (var proc in System.Diagnostics.Process.GetProcessesByName("explorer"))
+            {
+                uint pid = (uint)proc.Id;
+                if (_thawedExplorerPids.Contains((int)pid) && !_suspendManager.IsSuspended(pid))
+                {
+                    await _suspendManager.SuspendProcessAsync(pid, CancellationToken.None);
+                }
+            }
             _thawedExplorerPids = null;
         }
     }
@@ -131,14 +150,14 @@ public partial class ProcessLockPanel : UserControl
     {
         _filter = "all";
         FilterAllBg.Background = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
-        FilterFreezeBg.Background = new SolidColorBrush(Color.FromRgb(0x44, 0x44, 0x44));
+        FilterSuspendBg.Background = new SolidColorBrush(Color.FromRgb(0x44, 0x44, 0x44));
         ApplyFilter();
     }
 
-    private void FilterFreeze_Click(object sender, RoutedEventArgs e)
+    private void FilterSuspend_Click(object sender, RoutedEventArgs e)
     {
-        _filter = "freeze";
-        FilterFreezeBg.Background = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
+        _filter = "suspend";
+        FilterSuspendBg.Background = new SolidColorBrush(Color.FromRgb(0x66, 0x66, 0x66));
         FilterAllBg.Background = new SolidColorBrush(Color.FromRgb(0x44, 0x44, 0x44));
         ApplyFilter();
     }
@@ -147,14 +166,15 @@ public partial class ProcessLockPanel : UserControl
     {
         if (sender is Button btn && btn.DataContext is ProcessGroupViewModel vm)
         {
-            bool newVal = !vm.IsFreezeTarget;
-            _service.ToggleFreezeTarget(vm.Name, newVal);
+            bool newVal = !vm.IsSuspendable;
+            await _service.ToggleSuspendableAsync(vm.Name, newVal);
             foreach (var entry in vm.Entries)
             {
+                uint pid = (uint)entry.Pid;
                 if (newVal && !entry.IsFrozen)
-                    _service.ToggleFreeze(entry.Pid, true);
+                    await _suspendManager.SuspendProcessAsync(pid, CancellationToken.None);
                 else if (!newVal && entry.IsFrozen)
-                    _service.ToggleFreeze(entry.Pid, false);
+                    await _suspendManager.ResumeProcessAsync(pid, CancellationToken.None);
             }
             await RefreshAsync();
         }
@@ -162,7 +182,7 @@ public partial class ProcessLockPanel : UserControl
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        ProcessLockService.KeyboardInputActive = false;
+        _suspendManager.KeyboardInputActive = false;
         CloseRequested?.Invoke();
     }
 }
@@ -178,7 +198,7 @@ public class ProcessGroupViewModel
     public string Name { get; }
     public string ExePath { get; }
     public int Count { get; }
-    public bool IsFreezeTarget => Entries[0].IsFreezeTarget;
+    public bool IsSuspendable => Entries[0].IsSuspendable;
     public bool IsFrozen => Entries.Any(e => e.IsFrozen);
     public bool IsBackground => Entries.All(e => e.IsBackground);
     public int ParentPid => Entries[0].ParentPid;
