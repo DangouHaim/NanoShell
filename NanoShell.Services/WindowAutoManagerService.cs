@@ -95,7 +95,44 @@ public class WindowAutoManagerService : IDisposable
             return;
         }
 
+        // Task Manager restores its saved position after being
+        // maximized. Delay the maximize to avoid flicker.
+        NativeMethods.GetWindowThreadProcessId(hWnd, out uint pid);
+        try
+        {
+            using var proc = Process.GetProcessById((int)pid);
+            if (proc.ProcessName.Equals("Taskmgr", StringComparison.OrdinalIgnoreCase))
+            {
+                var timer = new DispatcherTimer(
+                    TimeSpan.FromMilliseconds(600),
+                    DispatcherPriority.Normal,
+                    (s, e) => { ((DispatcherTimer)s).Stop(); MaximizeToWorkArea(hWnd); },
+                    _dispatcher);
+                timer.Start();
+                return;
+            }
+        }
+        catch { }
+
+        MaximizeToWorkArea(hWnd);
+    }
+
+    private void MaximizeToWorkArea(IntPtr hWnd)
+    {
         NativeMethods.ShowWindow(hWnd, Constants.SW_MAXIMIZE);
+
+        RECT workArea = new RECT();
+        if (!NativeMethods.SystemParametersInfo(Constants.SPI_GETWORKAREA, 0, ref workArea, 0))
+            return;
+
+        NativeMethods.SetWindowPos(
+            hWnd,
+            Constants.HWND_TOP,
+            workArea.left, workArea.top,
+            workArea.right - workArea.left,
+            workArea.bottom - workArea.top,
+            Constants.SWP_NOACTIVATE | Constants.SWP_FRAMECHANGED | Constants.SWP_NOZORDER
+        );
     }
 
     private void SnapToTopHalf(IntPtr hWnd)

@@ -26,6 +26,8 @@ public class WindowStateService
         StringBuilder className = new StringBuilder(256);
         NativeMethods.GetClassName(hWnd, className, 256);
         string cls = className.ToString();
+        if (cls == "TaskManagerWindow")
+            return false;
         if (cls == "ConsoleWindowClass" || cls == "CASCADIA_HOSTING_WINDOW_CLASS")
             return true;
 

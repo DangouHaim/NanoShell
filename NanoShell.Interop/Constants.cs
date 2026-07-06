@@ -31,6 +31,7 @@ public static class Constants
     public const uint SWP_SHOWWINDOW = 0x0040;
     public const uint SWP_NOZORDER = 0x0004;
     public const uint SWP_NOACTIVATE = 0x0010;
+    public const uint SWP_FRAMECHANGED = 0x0020;
 
     public const int WH_MOUSE_LL = 14;
     public const uint WM_LBUTTONDOWN = 0x0201;
