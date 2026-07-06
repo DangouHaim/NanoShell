@@ -1,38 +1,3 @@
-# Task 2: Rewrite ProcessLockService → SuspendableProcessService
-
-**Files:**
-- Delete: `NanoShell.Services/ProcessLockService.cs`
-- Create: `NanoShell.Services/SuspendableProcessService.cs`
-
-**Interfaces:**
-- Consumes: `SuspendManager` (from Task 1 — `NanoShell.Services/SuspendManager.cs`)
-- Produces: `SuspendableProcessService` class consumed by Tasks 4, 5, 6
-
-## Important Context
-
-- `SuspendManager` was created in Task 1 and lives at `NanoShell.Services/SuspendManager.cs`
-- It has these relevant members:
-  - `bool IsSuspended(uint pid)` — check if process is suspended
-  - No direct freeze/thaw methods — those are on SuspendManager
-- `ProcessLockService` is the existing file to replace. Read it first for reference.
-
-## Steps
-
-### Step 1: Read the existing ProcessLockService for reference, then delete it
-
-Read `NanoShell.Services/ProcessLockService.cs` to understand:
-- `ProcessEntry` model class
-- `EnumerateAll()` method (enumeration + categorization)
-- `SnapshotProcesses()`, `EnumerateWindows()`, `GetProcessImagePath()`
-- `SaveExceptions()` / `LoadExceptions()` patterns (though the actual persistence needs fixing)
-
-Then delete `NanoShell.Services/ProcessLockService.cs`.
-
-### Step 2: Create SuspendableProcessService.cs
-
-Create `NanoShell.Services/SuspendableProcessService.cs` with the following complete code:
-
-```csharp
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -249,19 +214,3 @@ public class SuspendableProcessService
         public List<string>? Suspendable { get; set; }
     }
 }
-```
-
-### Step 3: Build
-
-```powershell
-dotnet build NanoShell.Services\NanoShell.Services.csproj 2>&1
-```
-
-Expected: Build succeeds, 0 errors.
-
-### Step 4: Commit
-
-```bash
-git add -A
-git commit -m "refactor: rename ProcessLockService to SuspendableProcessService, fix persistence"
-```

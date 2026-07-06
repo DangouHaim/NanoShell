@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
+using NanoShell.Interop;
 
 namespace NanoShell.Services;
 
@@ -47,7 +48,8 @@ public class ExplorerWatchdogService
                     {
                         if (!proc.Responding)
                         {
-                            ProcessLockService.ThawProcess(proc.Handle);
+                            int retries = 3;
+                            while (retries-- > 0 && NativeMethods.NtResumeProcess(proc.Handle) == 0) { }
                             Thread.Sleep(500);
 
                             if (!proc.Responding)
