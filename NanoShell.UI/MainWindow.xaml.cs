@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -20,7 +21,8 @@ public partial class MainWindow : Window
     private readonly WindowStateService _windowStateService;
     private readonly WindowAutoManagerService _windowAutoManager;
     private readonly LockScreenService _lockScreenService;
-    private readonly ProcessLockService _processLockService;
+    private readonly SuspendManager _suspendManager;
+    private readonly SuspendableProcessService _suspendableService;
     private readonly ExplorerWatchdogService _explorerWatchdog;
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -33,7 +35,7 @@ public partial class MainWindow : Window
 
         _windowAutoManager.Start();
         _lockScreenService.Start();
-        _explorerWatchdog.StartWatching();
+        _explorerWatchdog.Start();
 
         new StartupRegistrationService().RegisterAtLogon();
     }
@@ -59,8 +61,9 @@ public partial class MainWindow : Window
         _windowStateService = new WindowStateService();
         _windowAutoManager = new WindowAutoManagerService(Dispatcher, _windowStateService);
         _lockScreenService = new LockScreenService(Dispatcher);
-        _processLockService = new ProcessLockService();
-        _explorerWatchdog = new ExplorerWatchdogService(Dispatcher);
+        _suspendManager = new SuspendManager();
+        _suspendableService = new SuspendableProcessService(_suspendManager);
+        _explorerWatchdog = new ExplorerWatchdogService(_suspendManager);
         _lockScreenService.LockScreenRequested += OnLockScreenRequested;
         _lockScreenService.LockScreenDismissed += OnLockScreenDismissed;
 
@@ -74,10 +77,12 @@ public partial class MainWindow : Window
         _appBarService.RegisterAppBar(Height);
     }
 
-    private void Window_Closed(object sender, EventArgs e)
+    private async void Window_Closed(object sender, EventArgs e)
     {
-        _processLockService.ThawAll();
-        _explorerWatchdog.StopWatching();
+        _suspendManager.CancelAll();
+        await _suspendManager.ResumeAllAsync(CancellationToken.None);
+        await _suspendableService.SaveAsync();
+        _explorerWatchdog.Stop();
         _windowAutoManager?.Dispose();
         _lockScreenService?.Stop();
         _appBarService.RegisterAppBar();
@@ -87,15 +92,18 @@ public partial class MainWindow : Window
 
     private async void OnLockScreenRequested(string wallpaperPath)
     {
-        await _processLockService.FreezeAllAsync();
-        var win = new LockScreenWindow(_lockScreenService, _processLockService, wallpaperPath);
+        var targets = new HashSet<string>(_suspendableService.SuspendableTargets, StringComparer.OrdinalIgnoreCase);
+        await _suspendManager.SuspendAllAsync(targets, CancellationToken.None);
+        var win = new LockScreenWindow(_lockScreenService, _suspendableService, _suspendManager, wallpaperPath);
         win.Show();
     }
 
-    private void OnLockScreenDismissed()
+    private async void OnLockScreenDismissed()
     {
-        _processLockService.ThawAll();
+        await _suspendManager.ResumeAllAsync(CancellationToken.None);
     }
+
+    // ---- Back button ----
 
     private DateTime _lastBackTapTime = DateTime.MinValue;
     private DispatcherTimer _backTapTimer;

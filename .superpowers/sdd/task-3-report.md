@@ -1,20 +1,7 @@
-# Task 3 Report: Create WindowAutoManager class
+# Task 3 Report: Rewrite ExplorerWatchdogService
 
-## Status: Complete
-
-### Step 1: Create WindowAutoManager.cs
-- Created `NanoShell/WindowAutoManager.cs` with the `WindowAutoManager` class implementing `IDisposable`
-- Added `using System.Windows.Interop;` (was missing from brief, needed for `WindowInteropHelper`)
-- Qualified `RECT` as `MainWindow.RECT` in `GetWindowRect` call (was missing from brief)
-
-### Step 2: Make required members public in MainWindow.xaml.cs
-Changed `private` → `public`/`public static` for:
-- `SetWinEventHook`, `UnhookWinEvent`, `WinEventDelegate` (delegate, `public` only), `GetWindowLong`, `GetWindowRect`, `SetWindowPos`, `SystemParametersInfo`
-- `RECT` struct (`public struct RECT`)
-- Constants: `GWL_EXSTYLE`, `WS_EX_TOOLWINDOW`, `SW_SHOWNORMAL`, `SW_MAXIMIZE`, `SPI_GETWORKAREA`, `WINEVENT_OUTOFCONTEXT`, `EVENT_SYSTEM_FOREGROUND`, `OBJID_WINDOW`, `CHILDID_SELF`, `GWL_STYLE`, `WS_SIZEBOX`, `HWND_TOP`, `SWP_SHOWWINDOW`
-
-### Step 3: Verify build
-- `dotnet build` succeeded (0 errors)
-
-### Step 4: Commit
-- `c687549` feat: add WindowAutoManager with SetWinEventHook
+- **Status:** DONE
+- **Commits created:** `a1f3a31` — `refactor: rewrite ExplorerWatchdogService to use SuspendManager API`
+- **Build result:** Succeeded (0 errors, 3 pre-existing warnings)
+- **Concerns:** None. The Services project builds cleanly. MainWindow.xaml.cs still uses the old constructor (`Dispatcher`) and method names (`StartWatching`/`StopWatching`) — these will be updated when MainWindow is refactored in a later task to inject `SuspendManager`.
+- **Report file path:** `.superpowers/sdd/task-3-report.md`
