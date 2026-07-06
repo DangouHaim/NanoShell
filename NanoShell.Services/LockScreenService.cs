@@ -9,6 +9,7 @@ namespace NanoShell.Services;
 public class LockScreenService
 {
     private readonly Dispatcher _dispatcher;
+    private readonly Func<bool>? _videoPlaybackGuard;
     private DispatcherTimer? _pollTimer;
     private uint _lastInputTick;
     private POINT _lastCursorPos;
@@ -17,8 +18,9 @@ public class LockScreenService
     public event Action<string>? LockScreenRequested;
     public event Action? LockScreenDismissed;
 
-    public LockScreenService(Dispatcher dispatcher)
+    public LockScreenService(Dispatcher dispatcher, Func<bool>? videoPlaybackGuard = null)
     {
+        _videoPlaybackGuard = videoPlaybackGuard;
         _dispatcher = dispatcher;
     }
 
@@ -51,6 +53,13 @@ public class LockScreenService
     private void OnPollTick(object? sender, EventArgs e)
     {
         if (_locked) return;
+
+        if (_videoPlaybackGuard?.Invoke() == true)
+        {
+            _lastInputTick = (uint)Environment.TickCount;
+            NativeMethods.GetCursorPos(out _lastCursorPos);
+            return;
+        }
 
         uint tick = (uint)Environment.TickCount;
         if (_lastInputTick == 0)
