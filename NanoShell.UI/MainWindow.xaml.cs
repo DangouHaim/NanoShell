@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly SuspendManager _suspendManager;
     private readonly SuspendableProcessService _suspendableService;
     private readonly ExplorerWatchdogService _explorerWatchdog;
+    private readonly MediaPlaybackService _mediaPlayback;
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -59,8 +60,9 @@ public partial class MainWindow : Window
         _keyboardService = new KeyboardService();
         _appBarService = new AppBarService();
         _windowStateService = new WindowStateService();
+        _mediaPlayback = new MediaPlaybackService();
         _windowAutoManager = new WindowAutoManagerService(Dispatcher, _windowStateService);
-        _lockScreenService = new LockScreenService(Dispatcher);
+        _lockScreenService = new LockScreenService(Dispatcher, () => _mediaPlayback.IsVideoPlaying());
         _suspendManager = new SuspendManager();
         _suspendableService = new SuspendableProcessService(_suspendManager);
         _explorerWatchdog = new ExplorerWatchdogService(_suspendManager);
