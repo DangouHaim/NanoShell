@@ -181,6 +181,7 @@ public class ProcessLockService
                     string nameLower = name.ToLowerInvariant();
                     if (_systemProcesses.Contains(nameLower)) continue;
                     if (!_exceptions.Contains(nameLower)) continue;
+                    if (_frozenPids.Contains(pid)) continue; // already frozen
                     using var proc = Process.GetProcessById(pid);
                     NativeMethods.NtSuspendProcess(proc.Handle);
                     _frozenPids.Add(pid);
@@ -200,7 +201,7 @@ public class ProcessLockService
             try
             {
                 using var proc = Process.GetProcessById(pid);
-                ForceThaw(proc.Handle);
+                NativeMethods.NtResumeProcess(proc.Handle);
             }
             catch { }
         }
@@ -208,25 +209,28 @@ public class ProcessLockService
         _windowsEnumerated = false;
     }
 
-    /// <summary>Force-thaw a process handle, up to 10 resume calls.</summary>
-    public static void ForceThaw(IntPtr hProcess)
+    /// <summary>Resume a process by handle (used by watchdog).</summary>
+    public static void ThawProcess(IntPtr hProcess)
     {
-        int maxResume = 10;
-        while (maxResume-- > 0 && NativeMethods.NtResumeProcess(hProcess) == 0) { }
+        int retries = 3;
+        while (retries-- > 0 && NativeMethods.NtResumeProcess(hProcess) == 0) { }
     }
 
     public void ToggleFreeze(int pid, bool freeze)
     {
         try
         {
-            using var proc = Process.GetProcessById(pid);
             if (freeze)
             {
+                if (_frozenPids.Contains(pid)) return; // already frozen
+                using var proc = Process.GetProcessById(pid);
                 NativeMethods.NtSuspendProcess(proc.Handle);
                 _frozenPids.Add(pid);
             }
             else
             {
+                if (!_frozenPids.Contains(pid)) return; // not frozen
+                using var proc = Process.GetProcessById(pid);
                 NativeMethods.NtResumeProcess(proc.Handle);
                 _frozenPids.Remove(pid);
             }

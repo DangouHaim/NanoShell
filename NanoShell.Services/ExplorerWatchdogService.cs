@@ -1,7 +1,8 @@
+using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
-using NanoShell.Interop;
 
 namespace NanoShell.Services;
 
@@ -9,6 +10,7 @@ public class ExplorerWatchdogService
 {
     private readonly Dispatcher _dispatcher;
     private DispatcherTimer? _timer;
+    private CancellationTokenSource? _cts;
 
     public ExplorerWatchdogService(Dispatcher dispatcher)
     {
@@ -19,55 +21,56 @@ public class ExplorerWatchdogService
     {
         _timer?.Stop();
         _timer = new DispatcherTimer(
-            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(5),
             DispatcherPriority.Normal,
-            (_, _) => CheckExplorer(),
+            (_, _) => _ = CheckExplorerAsync(),
             _dispatcher);
         _timer.Start();
     }
 
     public void StopWatching()
     {
+        _cts?.Cancel();
         _timer?.Stop();
         _timer = null;
     }
 
-    private void CheckExplorer()
+    private async Task CheckExplorerAsync()
     {
         try
         {
-            foreach (var proc in Process.GetProcessesByName("explorer"))
+            await Task.Run(() =>
             {
-                if (!proc.Responding)
+                foreach (var proc in Process.GetProcessesByName("explorer"))
                 {
-                    // Force-thaw via NtResumeProcess
                     try
                     {
-                        ProcessLockService.ForceThaw(proc.Handle);
-                    }
-                    catch { }
-
-                    // Still not responding after thaw attempt? Restart.
-                    if (!proc.Responding)
-                    {
-                        string? exePath = null;
-                        try { exePath = proc.MainModule?.FileName; }
-                        catch { }
-
-                        try { proc.Kill(); }
-                        catch { }
-
-                        if (!string.IsNullOrEmpty(exePath))
+                        if (!proc.Responding)
                         {
-                            Task.Delay(1000).ContinueWith(_ =>
+                            ProcessLockService.ThawProcess(proc.Handle);
+                            Thread.Sleep(500);
+
+                            if (!proc.Responding)
                             {
-                                try { Process.Start(exePath); }
+                                string? exePath = null;
+                                try { exePath = proc.MainModule?.FileName; }
                                 catch { }
-                            });
+
+                                try { proc.Kill(); }
+                                catch { }
+
+                                if (!string.IsNullOrEmpty(exePath))
+                                {
+                                    Thread.Sleep(1500);
+                                    try { Process.Start(exePath); }
+                                    catch { }
+                                }
+                            }
                         }
                     }
+                    catch { }
                 }
-            }
+            });
         }
         catch { }
     }
