@@ -11,23 +11,8 @@ public class AppBarService
 
     public void RegisterAppBar(double height = 0)
     {
-        int screenWidth = NativeMethods.GetSystemMetrics(Constants.SM_CXSCREEN);
-        int screenHeight = NativeMethods.GetSystemMetrics(Constants.SM_CYSCREEN);
-
-        if (height == 0)
-        {
-            RECT fullArea = new RECT
-            {
-                left = 0,
-                top = 0,
-                right = screenWidth,
-                bottom = screenHeight
-            };
-            NativeMethods.SystemParametersInfo(Constants.SPI_SETWORKAREA, 0, ref fullArea, 1);
-            return;
-        }
-
         NativeMethods.SystemParametersInfo(Constants.SPI_GETWORKAREA, 0, ref _appBarArea, 0);
+        int screenHeight = NativeMethods.GetSystemMetrics(Constants.SM_CYSCREEN);
 
         RECT newWorkArea = new RECT
         {
