@@ -200,13 +200,19 @@ public class ProcessLockService
             try
             {
                 using var proc = Process.GetProcessById(pid);
-                // Resume until fully thawed (handles multiple suspend calls)
-                while (NativeMethods.NtResumeProcess(proc.Handle) == 0) { }
+                ForceThaw(proc.Handle);
             }
             catch { }
         }
         _frozenPids.Clear();
         _windowsEnumerated = false;
+    }
+
+    /// <summary>Force-thaw a process handle, up to 10 resume calls.</summary>
+    public static void ForceThaw(IntPtr hProcess)
+    {
+        int maxResume = 10;
+        while (maxResume-- > 0 && NativeMethods.NtResumeProcess(hProcess) == 0) { }
     }
 
     public void ToggleFreeze(int pid, bool freeze)

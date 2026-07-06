@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private readonly WindowAutoManagerService _windowAutoManager;
     private readonly LockScreenService _lockScreenService;
     private readonly ProcessLockService _processLockService;
+    private readonly ExplorerWatchdogService _explorerWatchdog;
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -32,6 +33,7 @@ public partial class MainWindow : Window
 
         _windowAutoManager.Start();
         _lockScreenService.Start();
+        _explorerWatchdog.StartWatching();
 
         new StartupRegistrationService().RegisterAtLogon();
     }
@@ -58,6 +60,7 @@ public partial class MainWindow : Window
         _windowAutoManager = new WindowAutoManagerService(Dispatcher, _windowStateService);
         _lockScreenService = new LockScreenService(Dispatcher);
         _processLockService = new ProcessLockService();
+        _explorerWatchdog = new ExplorerWatchdogService(Dispatcher);
         _lockScreenService.LockScreenRequested += OnLockScreenRequested;
         _lockScreenService.LockScreenDismissed += OnLockScreenDismissed;
 
@@ -74,6 +77,7 @@ public partial class MainWindow : Window
     private void Window_Closed(object sender, EventArgs e)
     {
         _processLockService.ThawAll();
+        _explorerWatchdog.StopWatching();
         _windowAutoManager?.Dispose();
         _lockScreenService?.Stop();
         _appBarService.RegisterAppBar();
