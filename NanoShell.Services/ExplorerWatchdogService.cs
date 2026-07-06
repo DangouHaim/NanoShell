@@ -1,79 +1,85 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Threading;
-using NanoShell.Interop;
 
 namespace NanoShell.Services;
 
 public class ExplorerWatchdogService
 {
-    private readonly Dispatcher _dispatcher;
-    private DispatcherTimer? _timer;
+    private readonly SuspendManager _suspendManager;
     private CancellationTokenSource? _cts;
+    private Task? _watchTask;
 
-    public ExplorerWatchdogService(Dispatcher dispatcher)
+    public ExplorerWatchdogService(SuspendManager suspendManager)
     {
-        _dispatcher = dispatcher;
+        _suspendManager = suspendManager;
     }
 
-    public void StartWatching()
-    {
-        _timer?.Stop();
-        _timer = new DispatcherTimer(
-            TimeSpan.FromSeconds(5),
-            DispatcherPriority.Normal,
-            (_, _) => _ = CheckExplorerAsync(),
-            _dispatcher);
-        _timer.Start();
-    }
-
-    public void StopWatching()
+    public void Start()
     {
         _cts?.Cancel();
-        _timer?.Stop();
-        _timer = null;
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+        _watchTask = Task.Run(() => WatchLoopAsync(token), token);
     }
 
-    private async Task CheckExplorerAsync()
+    public void Stop()
     {
-        try
+        _cts?.Cancel();
+        _cts = null;
+        _watchTask = null;
+    }
+
+    private async Task WatchLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
         {
-            await Task.Run(() =>
+            try
             {
+                await Task.Delay(TimeSpan.FromSeconds(5), ct);
+
                 foreach (var proc in Process.GetProcessesByName("explorer"))
                 {
+                    ct.ThrowIfCancellationRequested();
+                    uint pid = (uint)proc.Id;
+
                     try
                     {
+                        bool isSuspended = _suspendManager.IsSuspended(pid);
+
+                        if (isSuspended)
+                        {
+                            await _suspendManager.ResumeProcessAsync(pid, ct);
+                            await Task.Delay(500, ct);
+                        }
+
                         if (!proc.Responding)
                         {
-                            int retries = 3;
-                            while (retries-- > 0 && NativeMethods.NtResumeProcess(proc.Handle) == 0) { }
-                            Thread.Sleep(500);
+                            string? exePath = null;
+                            try { exePath = proc.MainModule?.FileName; }
+                            catch { }
 
-                            if (!proc.Responding)
+                            try { proc.Kill(); }
+                            catch { }
+
+                            if (!string.IsNullOrEmpty(exePath))
                             {
-                                string? exePath = null;
-                                try { exePath = proc.MainModule?.FileName; }
+                                await Task.Delay(1500, ct);
+                                try { Process.Start(exePath); }
                                 catch { }
-
-                                try { proc.Kill(); }
-                                catch { }
-
-                                if (!string.IsNullOrEmpty(exePath))
-                                {
-                                    Thread.Sleep(1500);
-                                    try { Process.Start(exePath); }
-                                    catch { }
-                                }
                             }
                         }
                     }
                     catch { }
                 }
-            });
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch { }
         }
-        catch { }
     }
 }

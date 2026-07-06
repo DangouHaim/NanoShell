@@ -1,174 +1,125 @@
-### Task 3: Create WindowAutoManager class
+# Task 3: Rewrite ExplorerWatchdogService
 
 **Files:**
-- Create: `NanoShell/WindowAutoManager.cs`
+- Modify: `NanoShell.Services/ExplorerWatchdogService.cs` (full rewrite)
 
 **Interfaces:**
-- Produces: `WindowAutoManager` class with `Start()`, `Stop()`, and `Dispose()`
+- Consumes: `SuspendManager` (Task 1 — `NanoShell.Services/SuspendManager.cs`)
 
-- [ ] **Step 1: Create WindowAutoManager.cs**
+## Context
+
+- The current `ExplorerWatchdogService` uses a `DispatcherTimer` + `Task.Run` and calls the now-deleted `ProcessLockService.ThawProcess()` static method
+- Task 2 patched it inline with `NativeMethods.NtResumeProcess` as a temporary fix — now you replace it fully
+- The new version uses `SuspendManager` API (no direct P/Invoke)
+- Runs on threadpool (not DispatcherTimer) in a dedicated Task loop
+
+## Steps
+
+### Step 1: Read current ExplorerWatchdogService.cs, then rewrite it
+
+Read the current file for reference (it was already patched in Task 2).
+
+Replace the entire content with:
 
 ```csharp
 using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Windows;
-using System.Windows.Threading;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace NanoShell;
+namespace NanoShell.Services;
 
-public class WindowAutoManager : IDisposable
+public class ExplorerWatchdogService
 {
-    private IntPtr _hook;
-    private readonly Dispatcher _dispatcher;
-    private bool _disposed;
+    private readonly SuspendManager _suspendManager;
+    private CancellationTokenSource? _cts;
+    private Task? _watchTask;
 
-    // WinEvent hook delegate — must be kept alive to avoid GC
-    private MainWindow.WinEventDelegate _winEventDelegate;
-
-    public WindowAutoManager(Dispatcher dispatcher)
+    public ExplorerWatchdogService(SuspendManager suspendManager)
     {
-        _dispatcher = dispatcher;
+        _suspendManager = suspendManager;
     }
 
     public void Start()
     {
-        _winEventDelegate = WinEventProc;
-        _hook = MainWindow.SetWinEventHook(
-            MainWindow.EVENT_SYSTEM_FOREGROUND,
-            MainWindow.EVENT_SYSTEM_FOREGROUND,
-            IntPtr.Zero,
-            _winEventDelegate,
-            0, 0,
-            MainWindow.WINEVENT_OUTOFCONTEXT
-        );
-
-        if (_hook == IntPtr.Zero)
-        {
-            Debug.WriteLine("WindowAutoManager: SetWinEventHook failed");
-        }
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+        _watchTask = Task.Run(() => WatchLoopAsync(token), token);
     }
 
     public void Stop()
     {
-        if (_hook != IntPtr.Zero)
-        {
-            MainWindow.UnhookWinEvent(_hook);
-            _hook = IntPtr.Zero;
-        }
+        _cts?.Cancel();
+        _cts = null;
+        _watchTask = null;
     }
 
-    private void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hWnd,
-        int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    private async Task WatchLoopAsync(CancellationToken ct)
     {
-        if (idObject != MainWindow.OBJID_WINDOW || idChild != MainWindow.CHILDID_SELF)
-            return;
-
-        // Skip our own window
-        if (hWnd == new WindowInteropHelper(Application.Current.MainWindow).Handle)
-            return;
-
-        _dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        while (!ct.IsCancellationRequested)
         {
-            ProcessWindow(hWnd);
-        }));
-    }
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5), ct);
 
-    private void ProcessWindow(IntPtr hWnd)
-    {
-        // 1. Check window styles
-        int style = MainWindow.GetWindowLong(hWnd, MainWindow.GWL_STYLE);
-        int exStyle = MainWindow.GetWindowLong(hWnd, MainWindow.GWL_EXSTYLE);
+                foreach (var proc in Process.GetProcessesByName("explorer"))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    uint pid = (uint)proc.Id;
 
-        // No resize handle → skip
-        if (((uint)style & MainWindow.WS_SIZEBOX) == 0)
-            return;
+                    try
+                    {
+                        bool isSuspended = _suspendManager.IsSuspended(pid);
 
-        // Tool window → skip
-        if (((uint)exStyle & MainWindow.WS_EX_TOOLWINDOW) != 0)
-            return;
+                        if (isSuspended)
+                        {
+                            await _suspendManager.ResumeProcessAsync(pid, ct);
+                            await Task.Delay(500, ct);
+                        }
 
-        // 2. Check window size
-        if (MainWindow.GetWindowRect(hWnd, out RECT rect))
-        {
-            int width = rect.right - rect.left;
-            int height = rect.bottom - rect.top;
-            if (width < 300 || height < 200)
-                return;
-        }
+                        if (!proc.Responding)
+                        {
+                            string? exePath = null;
+                            try { exePath = proc.MainModule?.FileName; }
+                            catch { }
 
-        // 3. Check if already maximized
-        MainWindow.WINDOWPLACEMENT placement = new MainWindow.WINDOWPLACEMENT();
-        placement.length = Marshal.SizeOf(placement);
-        MainWindow.GetWindowPlacement(hWnd, ref placement);
-        if (placement.showCmd == MainWindow.SW_MAXIMIZE)
-            return;
+                            try { proc.Kill(); }
+                            catch { }
 
-        // 4. Console window → snap to top half
-        if (MainWindow.InputSimulator.IsConsoleWindow(hWnd))
-        {
-            SnapToTopHalf(hWnd);
-            return;
-        }
-
-        // 5. Default: maximize
-        MainWindow.ShowWindow(hWnd, MainWindow.SW_MAXIMIZE);
-    }
-
-    private void SnapToTopHalf(IntPtr hWnd)
-    {
-        MainWindow.RECT workArea = new MainWindow.RECT();
-        MainWindow.SystemParametersInfo(MainWindow.SPI_GETWORKAREA, 0, ref workArea, 0);
-
-        int width = workArea.right - workArea.left;
-        int height = (workArea.bottom - workArea.top) / 2;
-
-        MainWindow.SetWindowPos(
-            hWnd,
-            MainWindow.HWND_TOP,
-            workArea.left, workArea.top,
-            width, height,
-            MainWindow.SWP_SHOWWINDOW
-        );
-    }
-
-    public void Dispose()
-    {
-        if (!_disposed)
-        {
-            Stop();
-            _disposed = true;
+                            if (!string.IsNullOrEmpty(exePath))
+                            {
+                                await Task.Delay(1500, ct);
+                                try { Process.Start(exePath); }
+                                catch { }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch { }
         }
     }
 }
 ```
 
-**Note:** Add `public static` to `SetWinEventHook`, `UnhookWinEvent`, `GetWindowLong`, `GetWindowRect`, `SystemParametersInfo`, `SPI_GETWORKAREA`, and the `RECT` struct declarations in `MainWindow.xaml.cs` so `WindowAutoManager` can access them. Also add `public static` to `WinEventDelegate`, `OBJID_WINDOW`, `CHILDID_SELF`, `GWL_STYLE`, `WS_SIZEBOX`, `SW_MAXIMIZE`, `SW_SHOWNORMAL`, `HWND_TOP`, `SWP_SHOWWINDOW`.
-
-- [ ] **Step 2: Make required members public in MainWindow.xaml.cs**
-
-Change `private` to `public static` for:
-- `SetWinEventHook`
-- `UnhookWinEvent`
-- `WinEventDelegate`
-- `GetWindowLong`
-- `GetWindowRect`
-- `SystemParametersInfo`
-- `RECT` struct
-- Constants: `WINEVENT_OUTOFCONTEXT`, `EVENT_SYSTEM_FOREGROUND`, `OBJID_WINDOW`, `CHILDID_SELF`, `GWL_STYLE`, `WS_SIZEBOX`, `WS_EX_TOOLWINDOW`, `SW_MAXIMIZE`, `SW_SHOWNORMAL`, `SPI_GETWORKAREA`, `HWND_TOP`, `SWP_SHOWWINDOW`
-
-Also change `GetClassName` and `GetWindowThreadProcessId` from `private` to `private static` (they're already static, just need to ensure they're visible). Actually `GetConsoleWindow` too.
-
-- [ ] **Step 3: Verify build**
+### Step 2: Build
 
 ```powershell
-dotnet build NanoShell\NanoShell.csproj
+dotnet build NanoShell.Services\NanoShell.Services.csproj 2>&1
 ```
 
-- [ ] **Step 4: Commit**
+Expected: Build succeeds, 0 errors.
+
+### Step 3: Commit
 
 ```bash
-git add NanoShell/WindowAutoManager.cs NanoShell/MainWindow.xaml.cs
-git commit -m "feat: add WindowAutoManager with SetWinEventHook"
+git add -A
+git commit -m "refactor: rewrite ExplorerWatchdogService to use SuspendManager API"
 ```
