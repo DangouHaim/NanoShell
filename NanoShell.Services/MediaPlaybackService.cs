@@ -11,9 +11,9 @@ public sealed class MediaPlaybackService
     {
         try
         {
-            var task = GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask();
-            task.Wait(5000);
-            if (task.IsCompletedSuccessfully)
+            var task = Task.Run(async () =>
+                await GlobalSystemMediaTransportControlsSessionManager.RequestAsync());
+            if (task.Wait(5000))
                 _manager = task.Result;
         }
         catch
