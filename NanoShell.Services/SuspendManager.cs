@@ -110,8 +110,6 @@ public class SuspendManager
             using var proc = Process.GetProcessById((int)pid);
             NativeMethods.NtResumeProcess(proc.Handle);
             _suspendCount.TryRemove(pid, out _);
-            if (_locks.TryRemove(pid, out var removedLock))
-                removedLock.Dispose();
             Log($"Resumed pid={pid} name={proc.ProcessName}");
 
             await DrainProcessAsync(pid, combinedCt);
@@ -124,6 +122,10 @@ public class SuspendManager
         {
             lockObj.Release();
         }
+
+        // Clean up lock entry after releasing it
+        if (!_suspendCount.ContainsKey(pid) && _locks.TryRemove(pid, out var removedLock))
+            removedLock.Dispose();
     }
 
     public async Task DrainProcessAsync(uint pid, CancellationToken ct)

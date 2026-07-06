@@ -33,3 +33,27 @@ Created `NanoShell.Services/SuspendManager.cs` — a thread-safe service that be
 
 ## Issues or concerns
 None.
+
+---
+
+## Code-review fixes applied (2026-07-06)
+
+### Fix 1 (Critical): Wire `CancelAll()` to actually cancel operations
+- `CancelAll()` now catches `ObjectDisposedException`
+- Every public async method creates a `CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token)` and uses the combined token for all async waits
+- `ResumeProcessAsync` now passes `combinedCt` to `DrainProcessAsync` instead of `CancellationToken.None`
+
+### Fix 2 (Critical): Fix Process leaks in `ResumeByNameAsync` and `SuspendByNameAsync`
+- Added `using var _ = proc;` in both methods to dispose each `Process` instance
+
+### Fix 3 (Important): Make `_suspendCount` private
+- Changed from `internal readonly` to `private readonly`
+
+### Fix 4 (Important): Remove SemaphoreSlim entries from `_locks` after last usage
+- In `ResumeProcessAsync`, after `_suspendCount.TryRemove(pid, out _)`, also calls `_locks.TryRemove(pid, out var removedLock)` and disposes
+
+## Build result
+**Succeeded** — 0 errors, no new warnings from SuspendManager.cs
+
+## Commit
+`4bc737c` — `fix: wire CancelAll, dispose Process objects, make _suspendCount private, cleanup _locks`
