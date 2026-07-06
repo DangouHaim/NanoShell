@@ -79,8 +79,8 @@ public partial class MainWindow : Window
 
     private async void Window_Closed(object sender, EventArgs e)
     {
-        _suspendManager.CancelAll();
         await _suspendManager.ResumeAllAsync(CancellationToken.None);
+        _suspendManager.CancelAll();
         await _suspendableService.SaveAsync();
         _explorerWatchdog.Stop();
         _windowAutoManager?.Dispose();

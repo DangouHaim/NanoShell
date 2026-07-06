@@ -28,11 +28,13 @@ public class SuspendManager
         catch { }
     }
 
+    private DateTime _lastSuspendAllTime = DateTime.MinValue;
     private readonly ConcurrentDictionary<uint, SemaphoreSlim> _locks = new();
     private readonly ConcurrentDictionary<uint, int> _suspendCount = new();
     private readonly CancellationTokenSource _shutdownCts = new();
 
     public bool KeyboardInputActive { get; set; }
+    public DateTime LastSuspendAllTime => _lastSuspendAllTime;
     public int ProcessSuspendCount(uint pid) => _suspendCount.GetValueOrDefault(pid, 0);
     public bool IsSuspended(uint pid) => _suspendCount.TryGetValue(pid, out var c) && c > 0;
 
@@ -72,6 +74,15 @@ public class SuspendManager
 
     public async Task SuspendProcessAsync(uint pid, CancellationToken ct)
     {
+        try
+        {
+            using var checkProc = Process.GetProcessById((int)pid);
+            string nameLower = checkProc.ProcessName.ToLowerInvariant();
+            if (_systemProcesses.Contains(nameLower))
+                return;
+        }
+        catch { return; }
+
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
         var combinedCt = linkedCts.Token;
         var lockObj = GetLock(pid);
@@ -117,6 +128,8 @@ public class SuspendManager
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             Log($"ResumeProcessAsync pid={pid}: {ex.Message}");
+            if (ex is ArgumentException) // process exited
+                _suspendCount.TryRemove(pid, out _);
         }
         finally
         {
@@ -184,6 +197,7 @@ public class SuspendManager
             await SuspendProcessAsync(pid, combinedCt);
         }
 
+        _lastSuspendAllTime = DateTime.UtcNow;
         Log("SuspendAllAsync completed");
     }
 

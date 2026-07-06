@@ -38,7 +38,7 @@ public class ExplorerWatchdogService
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(5), ct);
+                await Task.Delay(TimeSpan.FromSeconds(3), ct);
 
                 foreach (var proc in Process.GetProcessesByName("explorer"))
                 {
@@ -51,8 +51,12 @@ public class ExplorerWatchdogService
 
                         if (isSuspended)
                         {
-                            await _suspendManager.ResumeProcessAsync(pid, ct);
-                            await Task.Delay(500, ct);
+                            var suspendAge = DateTime.UtcNow - _suspendManager.LastSuspendAllTime;
+                            if (suspendAge.TotalSeconds > 30)
+                            {
+                                await _suspendManager.ResumeProcessAsync(pid, ct);
+                                await Task.Delay(500, ct);
+                            }
                         }
 
                         if (!proc.Responding)
