@@ -43,6 +43,9 @@ public class ProcessLockService
     private readonly string _exceptionsPath;
     private bool _windowsEnumerated;
 
+    /// <summary>Set to true when search box is focused (keyboard needed).</summary>
+    public static bool KeyboardInputActive { get; set; }
+
     public ProcessLockService()
     {
         string dir = Path.Combine(
@@ -173,20 +176,30 @@ public class ProcessLockService
             EnumerateWindows();
             int selfPid = Environment.ProcessId;
 
-            foreach (var (pid, name, _, _) in SnapshotProcesses())
+            // Two passes to ensure all marked processes are frozen
+            for (int pass = 0; pass < 2; pass++)
             {
-                try
+                foreach (var (pid, name, _, _) in SnapshotProcesses())
                 {
-                    if (pid == selfPid) continue;
-                    string nameLower = name.ToLowerInvariant();
-                    if (_systemProcesses.Contains(nameLower)) continue;
-                    if (!_exceptions.Contains(nameLower)) continue;
-                    if (_frozenPids.Contains(pid)) continue; // already frozen
-                    using var proc = Process.GetProcessById(pid);
-                    NativeMethods.NtSuspendProcess(proc.Handle);
-                    _frozenPids.Add(pid);
+                    try
+                    {
+                        if (pid == selfPid) continue;
+                        string nameLower = name.ToLowerInvariant();
+                        if (_systemProcesses.Contains(nameLower)) continue;
+                        if (!_exceptions.Contains(nameLower)) continue;
+
+                        // Don't freeze explorer when keyboard input is active
+                        if (nameLower.Equals("explorer", StringComparison.OrdinalIgnoreCase)
+                            && KeyboardInputActive)
+                            continue;
+
+                        if (_frozenPids.Contains(pid)) continue; // already frozen
+                        using var proc = Process.GetProcessById(pid);
+                        NativeMethods.NtSuspendProcess(proc.Handle);
+                        _frozenPids.Add(pid);
+                    }
+                    catch (Exception exFreeze) { Log($"FreezeAll skip pid={pid}: {exFreeze.Message}"); }
                 }
-                catch (Exception exFreeze) { Log($"FreezeAll skip pid={pid}: {exFreeze.Message}"); }
             }
         }
         catch (Exception ex) { Log($"FreezeAll top-level error: {ex.Message}"); }

@@ -1,26 +1,35 @@
-# Task 1: Add P/Invoke imports for auto window scale
+# Task 1: SuspendManager.cs — Report
 
 ## What was implemented
-Added new P/Invoke declarations and constants to `MainWindow.xaml.cs` for use by the upcoming `WindowAutoManager` class:
+Created `NanoShell.Services/SuspendManager.cs` — a thread-safe service that becomes the single authority for process suspend/resume. It wraps `NtSuspendProcess`/`NtResumeProcess` with per-PID SemaphoreSlim locking, suspend-count tracking, and a drain mechanism to normalize unbalanced resume calls.
 
-- **WinEventDelegate** delegate type for WinEvent hook callbacks
-- **SetWinEventHook** / **UnhookWinEvent** — for tracking foreground window changes
-- **GetClassName** — query window class names
-- **GetWindowRect** — get window bounding rectangles
-- **SetWindowPos** — reposition/resize windows
-- **GetConsoleWindow** — detect console windows
-- **GetWindowThreadProcessId** — associate windows with processes
-- **Constants**: `WINEVENT_OUTOFCONTEXT`, `EVENT_SYSTEM_FOREGROUND`, `OBJID_WINDOW`, `CHILDID_SELF`, `GWL_STYLE`, `WS_SIZEBOX`, `HWND_TOP`, `SWP_SHOWWINDOW`, `SWP_NOZORDER`, `SWP_NOACTIVATE`
+### Public API surface
+- `SuspendProcessAsync(uint pid, CancellationToken ct)` — suspend with idempotency guard
+- `ResumeProcessAsync(uint pid, CancellationToken ct)` — resume + drain extra resumes
+- `DrainProcessAsync(uint pid, CancellationToken ct)` — up to 10 extra resume calls
+- `SuspendAllAsync(HashSet<string>, CancellationToken ct)` — two-pass suspend against named targets
+- `ResumeAllAsync(CancellationToken ct)` — resume explorer first (with 250ms delay), then rest in parallel
+- `ResumeByNameAsync(string name, CancellationToken ct)` — resume by process name
+- `SuspendByNameAsync(string name, HashSet<int> pids, CancellationToken ct)` — suspend specific PIDs by name
+- `CancelAll()` — cancel pending operations
+- `IsSuspended(uint pid)` / `ProcessSuspendCount(uint pid)` — query state
+- `KeyboardInputActive` — property to guard explorer suspension
 
-Duplicates (`WS_EX_TOOLWINDOW`, `SW_SHOWNORMAL`, `SW_MAXIMIZE`) were omitted as they already exist in the file.
+## Build results
+**Succeeded** — 0 errors. One new warning (CS1998 on `DrainProcessAsync`: async keyword used without await — method is call-safe, matches spec).
 
 ## Files changed
-- `NanoShell/MainWindow.xaml.cs` — added new P/Invokes (lines 45-69) and new constants (lines 111-120)
+- `NanoShell.Services/SuspendManager.cs` (new, 223 lines)
+
+## Commit
+`48e595a` — `feat: add SuspendManager with per-PID state machine and drain`
 
 ## Self-review findings
-- All additions compile cleanly (0 errors, 8 pre-existing warnings)
-- No naming conflicts with existing declarations
-- Grouped logically with existing imports for readability
+1. **CS1998 warning** on `DrainProcessAsync` — harmless; method is `async` per brief spec but has no `await`. Works correctly.
+2. **No `using` disposal of `PROCESSENTRY32` snapshot** — same pattern as `ProcessLockService.SnapshotProcesses()`. The `finally` block calls `CloseHandle` which is correct.
+3. **`ResumeAllAsync` uses `CancellationToken.None`** when calling `DrainProcessAsync` inside `ResumeProcessAsync` — intentional to ensure drain completes even if caller cancels.
+4. **Two-pass suspend** in `SuspendAllAsync` matches existing `ProcessLockService.FreezeAll` pattern for catching late-spawned processes.
+5. **No internal constructor/dependency injection** — consistent with project conventions (no DI/MVVM framework).
 
-## Concerns
+## Issues or concerns
 None.

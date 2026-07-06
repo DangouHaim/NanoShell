@@ -29,7 +29,7 @@ public class SuspendManager
     }
 
     private readonly ConcurrentDictionary<uint, SemaphoreSlim> _locks = new();
-    internal readonly ConcurrentDictionary<uint, int> _suspendCount = new();
+    private readonly ConcurrentDictionary<uint, int> _suspendCount = new();
     private readonly CancellationTokenSource _shutdownCts = new();
 
     public bool KeyboardInputActive { get; set; }
@@ -66,13 +66,16 @@ public class SuspendManager
 
     public void CancelAll()
     {
-        _shutdownCts.Cancel();
+        try { _shutdownCts.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 
     public async Task SuspendProcessAsync(uint pid, CancellationToken ct)
     {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
+        var combinedCt = linkedCts.Token;
         var lockObj = GetLock(pid);
-        await lockObj.WaitAsync(ct);
+        await lockObj.WaitAsync(combinedCt);
         try
         {
             if (_suspendCount.TryGetValue(pid, out var count) && count > 0)
@@ -95,8 +98,10 @@ public class SuspendManager
 
     public async Task ResumeProcessAsync(uint pid, CancellationToken ct)
     {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
+        var combinedCt = linkedCts.Token;
         var lockObj = GetLock(pid);
-        await lockObj.WaitAsync(ct);
+        await lockObj.WaitAsync(combinedCt);
         try
         {
             if (!_suspendCount.TryGetValue(pid, out var count) || count <= 0)
@@ -105,9 +110,11 @@ public class SuspendManager
             using var proc = Process.GetProcessById((int)pid);
             NativeMethods.NtResumeProcess(proc.Handle);
             _suspendCount.TryRemove(pid, out _);
+            if (_locks.TryRemove(pid, out var removedLock))
+                removedLock.Dispose();
             Log($"Resumed pid={pid} name={proc.ProcessName}");
 
-            await DrainProcessAsync(pid, CancellationToken.None);
+            await DrainProcessAsync(pid, combinedCt);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -121,6 +128,8 @@ public class SuspendManager
 
     public async Task DrainProcessAsync(uint pid, CancellationToken ct)
     {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
+        var combinedCt = linkedCts.Token;
         const int maxDrain = 10;
         int drained = 0;
         try
@@ -129,7 +138,7 @@ public class SuspendManager
             IntPtr handle = proc.Handle;
             while (drained < maxDrain && NativeMethods.NtResumeProcess(handle) == 0)
             {
-                ct.ThrowIfCancellationRequested();
+                combinedCt.ThrowIfCancellationRequested();
                 drained++;
             }
             if (drained > 0)
@@ -143,32 +152,34 @@ public class SuspendManager
 
     public async Task SuspendAllAsync(HashSet<string> suspendableTargets, CancellationToken ct)
     {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
+        var combinedCt = linkedCts.Token;
         Log("SuspendAllAsync started");
         int selfPid = Environment.ProcessId;
 
         foreach (var (pid, name, _, _) in SnapshotProcesses())
         {
-            ct.ThrowIfCancellationRequested();
+            combinedCt.ThrowIfCancellationRequested();
             if (pid == selfPid) continue;
             string nameLower = name.ToLowerInvariant();
             if (_systemProcesses.Contains(nameLower)) continue;
             if (!suspendableTargets.Contains(nameLower)) continue;
             if (nameLower.Equals("explorer", StringComparison.OrdinalIgnoreCase) && KeyboardInputActive)
                 continue;
-            await SuspendProcessAsync(pid, ct);
+            await SuspendProcessAsync(pid, combinedCt);
         }
 
         // Two-pass to catch late spawns
         foreach (var (pid, name, _, _) in SnapshotProcesses())
         {
-            ct.ThrowIfCancellationRequested();
+            combinedCt.ThrowIfCancellationRequested();
             if (pid == selfPid) continue;
             string nameLower = name.ToLowerInvariant();
             if (_systemProcesses.Contains(nameLower)) continue;
             if (!suspendableTargets.Contains(nameLower)) continue;
             if (nameLower.Equals("explorer", StringComparison.OrdinalIgnoreCase) && KeyboardInputActive)
                 continue;
-            await SuspendProcessAsync(pid, ct);
+            await SuspendProcessAsync(pid, combinedCt);
         }
 
         Log("SuspendAllAsync completed");
@@ -176,6 +187,8 @@ public class SuspendManager
 
     public async Task ResumeAllAsync(CancellationToken ct)
     {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
+        var combinedCt = linkedCts.Token;
         Log("ResumeAllAsync started");
 
         var snapshot = _suspendCount.Keys.ToList();
@@ -190,34 +203,40 @@ public class SuspendManager
         }).ToList();
 
         foreach (var pid in explorerPids)
-            await ResumeProcessAsync(pid, ct);
+            await ResumeProcessAsync(pid, combinedCt);
 
         if (explorerPids.Count > 0)
-            await Task.Delay(250, ct);
+            await Task.Delay(250, combinedCt);
 
         var remaining = _suspendCount.Keys.ToList();
-        await Task.WhenAll(remaining.Select(pid => ResumeProcessAsync(pid, ct)));
+        await Task.WhenAll(remaining.Select(pid => ResumeProcessAsync(pid, combinedCt)));
 
         Log("ResumeAllAsync completed");
     }
 
     public async Task ResumeByNameAsync(string name, CancellationToken ct)
     {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
+        var combinedCt = linkedCts.Token;
         foreach (var proc in Process.GetProcessesByName(name))
         {
+            using var _ = proc;
             uint pid = (uint)proc.Id;
             if (IsSuspended(pid))
-                await ResumeProcessAsync(pid, ct);
+                await ResumeProcessAsync(pid, combinedCt);
         }
     }
 
     public async Task SuspendByNameAsync(string name, HashSet<int> pids, CancellationToken ct)
     {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _shutdownCts.Token);
+        var combinedCt = linkedCts.Token;
         foreach (var proc in Process.GetProcessesByName(name))
         {
+            using var _ = proc;
             uint pid = (uint)proc.Id;
             if (pids.Contains((int)pid) && !IsSuspended(pid))
-                await SuspendProcessAsync(pid, ct);
+                await SuspendProcessAsync(pid, combinedCt);
         }
     }
 }

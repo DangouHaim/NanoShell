@@ -113,11 +113,13 @@ public partial class ProcessLockPanel : UserControl
 
     private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
     {
+        ProcessLockService.KeyboardInputActive = true;
         _thawedExplorerPids = _service.ThawByName("explorer");
     }
 
     private void SearchBox_LostFocus(object sender, RoutedEventArgs e)
     {
+        ProcessLockService.KeyboardInputActive = false;
         if (_thawedExplorerPids != null && _thawedExplorerPids.Count > 0)
         {
             _service.FreezeByName("explorer", _thawedExplorerPids);
@@ -160,6 +162,7 @@ public partial class ProcessLockPanel : UserControl
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
+        ProcessLockService.KeyboardInputActive = false;
         CloseRequested?.Invoke();
     }
 }

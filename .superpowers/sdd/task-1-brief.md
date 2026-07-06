@@ -1,59 +1,270 @@
-### Task 1: Add new P/Invoke imports to MainWindow.xaml.cs
+# Task 1: Create SuspendManager.cs
 
 **Files:**
-- Modify: `NanoShell/MainWindow.xaml.cs`
+- Create: `NanoShell.Services/SuspendManager.cs`
 
 **Interfaces:**
-- Produces: All Win32 API declarations that `WindowAutoManager` will use
+- Produces: `SuspendManager` class consumed by all other tasks
 
-- [ ] **Step 1: Add imports inside `MainWindow` class, grouped with existing ones**
+## Steps
+
+### Step 1: Write the class skeleton
+
+Create `NanoShell.Services/SuspendManager.cs`:
 
 ```csharp
-// WinEvent hooks
-private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hWnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using NanoShell.Interop;
 
-[DllImport("user32.dll")]
-private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+namespace NanoShell.Services;
 
-[DllImport("user32.dll")]
-private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+public class SuspendManager
+{
+    private static readonly string _logPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "NanoShell", "suspend_manager.log");
 
-// Window queries
-[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+    private static readonly HashSet<string> _systemProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "textinputhost",
+        "tabtip",
+    };
 
-[DllImport("user32.dll")]
-private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    private static void Log(string msg)
+    {
+        try { File.AppendAllText(_logPath, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}\n"); }
+        catch { }
+    }
 
-[DllImport("user32.dll")]
-private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    private readonly ConcurrentDictionary<uint, SemaphoreSlim> _locks = new();
+    internal readonly ConcurrentDictionary<uint, int> _suspendCount = new();
+    private readonly CancellationTokenSource _shutdownCts = new();
 
-[DllImport("kernel32.dll")]
-private static extern IntPtr GetConsoleWindow();
+    public bool KeyboardInputActive { get; set; }
+    public int ProcessSuspendCount(uint pid) => _suspendCount.GetValueOrDefault(pid, 0);
+    public bool IsSuspended(uint pid) => _suspendCount.TryGetValue(pid, out var c) && c > 0;
 
-// Process query
-[DllImport("user32.dll")]
-private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    private SemaphoreSlim GetLock(uint pid)
+        => _locks.GetOrAdd(pid, _ => new SemaphoreSlim(1, 1));
 
-// Constants
-private const uint WINEVENT_OUTOFCONTEXT = 0;
-private const uint EVENT_SYSTEM_FOREGROUND = 3;
-private const int OBJID_WINDOW = 0;
-private const int CHILDID_SELF = 0;
-private const int GWL_STYLE = -16;
-private const uint WS_SIZEBOX = 0x00040000;
-private const uint WS_EX_TOOLWINDOW = 0x00000080;
-private const int SW_MAXIMIZE = 3;
-private const int SW_SHOWNORMAL = 1;
-private static readonly IntPtr HWND_TOP = IntPtr.Zero;
-private const uint SWP_SHOWWINDOW = 0x0040;
-private const uint SWP_NOZORDER = 0x0004;
-private const uint SWP_NOACTIVATE = 0x0010;
+    private static List<(uint Pid, string Name, string ExePath, int ParentPid)> SnapshotProcesses()
+    {
+        var list = new List<(uint, string, string, int)>();
+        IntPtr snap = NativeMethods.CreateToolhelp32Snapshot(NativeMethods.TH32CS_SNAPPROCESS, 0);
+        if (snap == (IntPtr)(-1))
+            return list;
+        try
+        {
+            var entry = new PROCESSENTRY32();
+            entry.dwSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<PROCESSENTRY32>();
+            if (!NativeMethods.Process32First(snap, ref entry))
+                return list;
+            do
+            {
+                string name = Path.GetFileNameWithoutExtension(entry.szExeFile);
+                list.Add((entry.th32ProcessID, name, entry.szExeFile, (int)entry.th32ParentProcessID));
+            } while (NativeMethods.Process32Next(snap, ref entry));
+        }
+        finally
+        {
+            NativeMethods.CloseHandle(snap);
+        }
+        return list;
+    }
+
+    public void CancelAll()
+    {
+        _shutdownCts.Cancel();
+    }
+}
 ```
 
-- [ ] **Step 2: Commit**
+### Step 2: Implement SuspendProcessAsync
+
+```csharp
+public async Task SuspendProcessAsync(uint pid, CancellationToken ct)
+{
+    var lockObj = GetLock(pid);
+    await lockObj.WaitAsync(ct);
+    try
+    {
+        if (_suspendCount.TryGetValue(pid, out var count) && count > 0)
+            return;
+
+        using var proc = Process.GetProcessById((int)pid);
+        NativeMethods.NtSuspendProcess(proc.Handle);
+        _suspendCount[pid] = 1;
+        Log($"Suspended pid={pid} name={proc.ProcessName}");
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        Log($"SuspendProcessAsync pid={pid}: {ex.Message}");
+    }
+    finally
+    {
+        lockObj.Release();
+    }
+}
+```
+
+### Step 3: Implement ResumeProcessAsync
+
+```csharp
+public async Task ResumeProcessAsync(uint pid, CancellationToken ct)
+{
+    var lockObj = GetLock(pid);
+    await lockObj.WaitAsync(ct);
+    try
+    {
+        if (!_suspendCount.TryGetValue(pid, out var count) || count <= 0)
+            return;
+
+        using var proc = Process.GetProcessById((int)pid);
+        NativeMethods.NtResumeProcess(proc.Handle);
+        _suspendCount.TryRemove(pid, out _);
+        Log($"Resumed pid={pid} name={proc.ProcessName}");
+
+        await DrainProcessAsync(pid, CancellationToken.None);
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        Log($"ResumeProcessAsync pid={pid}: {ex.Message}");
+    }
+    finally
+    {
+        lockObj.Release();
+    }
+}
+```
+
+### Step 4: Implement DrainProcessAsync
+
+```csharp
+public async Task DrainProcessAsync(uint pid, CancellationToken ct)
+{
+    const int maxDrain = 10;
+    int drained = 0;
+    try
+    {
+        using var proc = Process.GetProcessById((int)pid);
+        IntPtr handle = proc.Handle;
+        while (drained < maxDrain && NativeMethods.NtResumeProcess(handle) == 0)
+        {
+            ct.ThrowIfCancellationRequested();
+            drained++;
+        }
+        if (drained > 0)
+            Log($"Drained {drained} extra resume(s) for pid={pid}");
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        Log($"DrainProcessAsync pid={pid}: {ex.Message}");
+    }
+}
+```
+
+### Step 5: Implement SuspendAllAsync and ResumeAllAsync
+
+```csharp
+public async Task SuspendAllAsync(HashSet<string> suspendableTargets, CancellationToken ct)
+{
+    Log("SuspendAllAsync started");
+    int selfPid = Environment.ProcessId;
+
+    foreach (var (pid, name, _, _) in SnapshotProcesses())
+    {
+        ct.ThrowIfCancellationRequested();
+        if (pid == selfPid) continue;
+        string nameLower = name.ToLowerInvariant();
+        if (_systemProcesses.Contains(nameLower)) continue;
+        if (!suspendableTargets.Contains(nameLower)) continue;
+        if (nameLower.Equals("explorer", StringComparison.OrdinalIgnoreCase) && KeyboardInputActive)
+            continue;
+        await SuspendProcessAsync(pid, ct);
+    }
+
+    // Two-pass to catch late spawns
+    foreach (var (pid, name, _, _) in SnapshotProcesses())
+    {
+        ct.ThrowIfCancellationRequested();
+        if (pid == selfPid) continue;
+        string nameLower = name.ToLowerInvariant();
+        if (_systemProcesses.Contains(nameLower)) continue;
+        if (!suspendableTargets.Contains(nameLower)) continue;
+        if (nameLower.Equals("explorer", StringComparison.OrdinalIgnoreCase) && KeyboardInputActive)
+            continue;
+        await SuspendProcessAsync(pid, ct);
+    }
+
+    Log("SuspendAllAsync completed");
+}
+
+public async Task ResumeAllAsync(CancellationToken ct)
+{
+    Log("ResumeAllAsync started");
+
+    var snapshot = _suspendCount.Keys.ToList();
+    var explorerPids = snapshot.Where(pid =>
+    {
+        try
+        {
+            using var p = Process.GetProcessById((int)pid);
+            return p.ProcessName.Equals("explorer", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }).ToList();
+
+    foreach (var pid in explorerPids)
+        await ResumeProcessAsync(pid, ct);
+
+    if (explorerPids.Count > 0)
+        await Task.Delay(250, ct);
+
+    var remaining = _suspendCount.Keys.ToList();
+    await Task.WhenAll(remaining.Select(pid => ResumeProcessAsync(pid, ct)));
+
+    Log("ResumeAllAsync completed");
+}
+
+public async Task ResumeByNameAsync(string name, CancellationToken ct)
+{
+    foreach (var proc in Process.GetProcessesByName(name))
+    {
+        uint pid = (uint)proc.Id;
+        if (IsSuspended(pid))
+            await ResumeProcessAsync(pid, ct);
+    }
+}
+
+public async Task SuspendByNameAsync(string name, HashSet<int> pids, CancellationToken ct)
+{
+    foreach (var proc in Process.GetProcessesByName(name))
+    {
+        uint pid = (uint)proc.Id;
+        if (pids.Contains((int)pid) && !IsSuspended(pid))
+            await SuspendProcessAsync(pid, ct);
+    }
+}
+```
+
+### Step 6: Build and verify
+
+```powershell
+dotnet build NanoShell\NanoShell.csproj 2>&1
+```
+
+Expected: build succeeds, or minimal errors.
+
+### Step 7: Commit
 
 ```bash
-git add NanoShell/MainWindow.xaml.cs
-git commit -m "feat: add P/Invoke imports for auto window scale"
+git add -A
+git commit -m "feat: add SuspendManager with per-PID state machine and drain"
 ```
